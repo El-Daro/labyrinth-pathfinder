@@ -156,7 +156,7 @@ from time import perf_counter, process_time, time
 from typing import Dict, List, Optional, Tuple, Set, Union
 from sys import getsizeof, stdin
 
-import argparse, heapq, random, re, tracemalloc
+import argparse, heapq, random, re, sys, tracemalloc
 
 #---------------------------------------------------------------------------
 # DEFAULTS
@@ -1866,6 +1866,7 @@ def solve_from_input(input_path: Optional[str] = None, debug: bool = False, verb
 				solve_from_text(input_as_text, debug, verbose)
 				return
 
+		input_as_text = "\n".join(input_as_text)
 		solve_from_text(input_as_text, debug, verbose)
 
 	except Exception as ex:
@@ -1915,7 +1916,13 @@ def invoke_labyrinth_solver(args):
 	try:
 		if args.input_path:
 			# python ./run.py labyrinth.txt
-			solve_from_input(input_path = args.input_path, debug = args.debug, verbose = args.verbose)
+			file_try = Path(args.input_path)
+			if file_try.is_dir() or file_try.is_file():
+				solve_from_input(input_path = args.input_path, debug = args.debug, verbose = args.verbose)
+			else:
+				print("Input is not a path to file or directory: {0}".format(args.input_path), file = sys.stderr)
+				raise Exception("Input is not a path to file or directory: {0}".format(args.input_path))
+
 		elif args.depth or args.rooms or args.count or args.generate or args.generate_nonstandard:
 			if args.generate:
 				generator_amount = args.generate
@@ -1942,7 +1949,7 @@ def invoke_labyrinth_solver(args):
 # Arguments parsing
 def parse_arguments():
 	parser = argparse.ArgumentParser(description = PATHFINDER_TITLE)
-	parser.add_argument("input_path",        nargs = '?',
+	parser.add_argument("input_path",        nargs = '?', # default = "None",
 					 help = "Path to the input file or folder")
 	
 	parser.add_argument('-d', "--debug",     action = "store_true", 
@@ -1989,6 +1996,7 @@ def main():
 	else:
 		profiler.enabled = False
 
+	
 	# Some pre-defined tests
 	if args.tests:
 		run_tests(debug = False)
