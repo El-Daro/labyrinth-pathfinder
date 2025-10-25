@@ -1,0 +1,14 @@
+# Cache
+*__pycache__/
+*.pyc
+
+# VS Code
+.vscode/
+.vscode/*
+
+# Executables and binaries
+*.exe
+*.bin
+*.dll
+*.so
+*.dylib
