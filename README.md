@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This is a Python script that solves a certain type of labyrinths.
+This is a Python command line tool that solves a certain type of labyrinths.
 It can be used to solve labyrinths from files, directories, or standard input.
 It can also be used to generate random labyrinths with various parameters of depth, rooms count and hallway length.
 
