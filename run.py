@@ -1802,6 +1802,11 @@ def solve_from_text(input_as_text: str, debug: bool = False, verbose: bool = Fal
 		# # print(file_obj)
 		# input_as_text = str(File.read(Path(file_obj)))
 
+		if not input_as_text:
+			print("Warning: Empty input received", file=sys.stderr)
+		
+		print("input_as_text:\n{0}".format(input_as_text), file=sys.stderr)
+
 		if debug or verbose:
 			print("Labyrinth read directly from stdin:\n")
 			print(input_as_text)
@@ -1820,6 +1825,10 @@ def solve_from_text(input_as_text: str, debug: bool = False, verbose: bool = Fal
 
 		print(solved)
 	
+	except EOFError as ex:
+		print("\nEOF received (empty input)", file=sys.stderr)
+		return ""
+
 	except Exception as ex:
 		raise ex
 
