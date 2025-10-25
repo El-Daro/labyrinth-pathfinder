@@ -1836,9 +1836,10 @@ def solve_from_input(input_path: Optional[str] = None, debug: bool = False, verb
 			else:
 				help_message = "To exit enter a new line and type END"
 			
-			print("Paste or type the graphical representation of the labyrinth below.")
-			print(help_message)
-			print()
+			if verbose and stdin.isatty():
+				print("Paste or type the graphical representation of the labyrinth below.")
+				print(help_message)
+				print()
 		
 			try:
 				input_as_text = stdin.read().strip()
