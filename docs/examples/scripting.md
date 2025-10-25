@@ -36,6 +36,7 @@ resident = room_index + 1:
 >>> state = State(hallway, rooms)
 >>> lab = Labyrinth(state)
 >>> print(lab)
+
    #############
    #...........#
    ###B#C#B#D###
@@ -48,6 +49,7 @@ resident = room_index + 1:
 >>> generator = Generator(rooms = 4, depth = 4, hallway_length = 11)
 >>> labyrinth = generator.new_labyrinth()
 >>> print(labyrinth)
+
    #############
    #...........#
    ###A#C#C#D###
@@ -55,19 +57,25 @@ resident = room_index + 1:
      #B#B#B#C#
      #A#B#A#D#
      #########
+
 >>> gen.depth = 2
 >>> labyrinth = generator.new_labyrinth()
 >>> print(labyrinth)
+
    #############
    #...........#
    ###A#B#C#C###
     #B#D#D#A#
     #########
+
 >>> labyrinth
+
 Hallway: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 Rooms: ((1, 2), (2, 4), (3, 4), (3, 1))
+
 >>> labyrinth = generator.new_labyrinth(rooms = 2, depth = 4, hallway_length = 7)
 >>> print(labyrinth)
+
    #########
    #.......#
    ###B#A###
@@ -75,12 +83,13 @@ Rooms: ((1, 2), (2, 4), (3, 4), (3, 1))
      #A#B#
      #A#A#
      #####
+
 >>> labyrinth
 Hallway: (0, 0, 0, 0, 0, 0, 0)
 Rooms: ((3, 2, 1, 1), (4, 2, 3, 4))
 
 
-Retrieve the last generated state:
+# Retrieve the last generated state:
 >>> last_state = generator.state_history[-1]
 >>> labyrinth_last = Labyrinth(last_state)
 >>> labyrinth_last
