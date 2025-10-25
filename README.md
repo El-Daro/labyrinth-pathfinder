@@ -2,9 +2,38 @@
 
 ## Introduction
 
-This is a Python script that solves labyrinths.
+This is a Python script that solves a certain type of labyrinths.
 It can be used to solve labyrinths from files, directories, or standard input.
 It can also be used to generate random labyrinths with various parameters of depth, rooms count and hallway length.
+
+#### Task:
+Given an initial state, find the minimum cost of reaching the goal state, where goal state is:
+- hallway: (0**hallway_length)
+- rooms: room(index) = decoded(index + 1)
+   - i.e. each room should be full and only contain objects of its type. 
+
+#### Weights per one node move
+```
+A:    1
+B:   10
+C:  100
+D: 1000
+N: encoded(index)**10
+```
+  
+#### Encoding
+Each object is encoded as an integer starting from `1` (`0` is for empty cells).
+```
+0: empty cell
+1: 'A'
+2: 'B'
+...
+N: 'index + 1'
+```
+
+#### Other constraints:
+- Execution time < 10 s
+- Memory usage < 200 MB
 
 ## Description
 
@@ -15,8 +44,8 @@ It can also be used to generate random labyrinths with various parameters of dep
 ### A* Search
 
 It uses [A* Search algorythm](https://www.redblobgames.com/pathfinding/a-star/introduction.html) to solve the labyrinths. Estimates the lowest cost to reach the goal with heuristic function. It assumes that:
-   1. There are no other objects in the labyrinth
-   2. We exit/enter the closest cell in both rooms
+   1. There are no other objects in the labyrinth;
+   2. We exit/enter the closest cell in both rooms.
 
 Results of the heuristic function are then added to the cost of the current state
 to put an estimate on minimal completion cost. This estimate is then used to
@@ -31,6 +60,8 @@ f_score = g_score + h_score
 Which translates to:
 cost_best_possible = cost_current + cost_heuristic
 
+### Heapq
+
 [Heapq](https://docs.python.org/3/library/heapq.html) (Python's priority queue) is a data structure that orders heap in a binary tree. Each parent leaf has children so that: child_1 < parent < child 2. This is used to order the possible moves in the A* Search algorythm. The first element of the heap (root of the tree) is always the smallest element.
 
 Heapq is ordered by the first element. If the first element is the same, it orders by the second element, and so on. Current implementation uses move counter as the second element, so it serves as an ID.
@@ -42,6 +73,7 @@ Peek: `heap[0]`                              | O(1)
 ### State representation
 
 State is stored as its own hashable object, containg two tuples representing hallway and rooms:
+
 ```python
 state = State(Tuple(int), Tuple(Tuple(int, ...), ...))
 ```
