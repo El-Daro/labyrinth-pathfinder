@@ -1942,7 +1942,7 @@ def invoke_labyrinth_solver(args):
 # Arguments parsing
 def parse_arguments():
 	parser = argparse.ArgumentParser(description = PATHFINDER_TITLE)
-	parser.add_argument("input_path",        nargs = '?', default = DEFAULT_LABYRINTHS_DIR,
+	parser.add_argument("input_path",        nargs = '?',
 					 help = "Path to the input file or folder")
 	
 	parser.add_argument('-d', "--debug",     action = "store_true", 
