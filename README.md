@@ -164,7 +164,7 @@ See more on generator options and other parameters:
 ## Links
 
 #### A* Search
-- [RedBlobGames | A* Search: Intoduction](https://www.redblobgames.com/pathfinding/a-star/introduction.html)
+- [RedBlobGames | A* Search: Introduction](https://www.redblobgames.com/pathfinding/a-star/introduction.html)
 - [RedBlobGames | A* Search: Implementation](https://www.redblobgames.com/pathfinding/a-star/implementation.html)
 
 #### Python
