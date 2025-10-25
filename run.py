@@ -423,7 +423,7 @@ class Labyrinth:
 		
 		elif isinstance(source, str) and source != "":
 			# TODO: Check if this is actually a path
-			self.labyrinth_as_text = labyrinth_as_text
+			self.labyrinth_as_text = source
 			self.import_from_text(source)
 		elif isinstance(source, State):
 			self.import_from_state(source)
@@ -1726,7 +1726,7 @@ def test_all_generator_and_search(count: int = 1, parameters: Optional[Dict] = N
 		test_generator_and_search(random.choice(params_list), debug, verbose)
 		
 def run_tests(debug: bool = False):
-	labyrinths_dir = "../labyrinths"
+	labyrinths_dir = "labyrinths"
 	parent_dir = Path(__file__).parent.resolve()
 	input_dir_absolute = Path(parent_dir, labyrinths_dir)
 	
@@ -1763,7 +1763,7 @@ def run_tests(debug: bool = False):
 	# SEARCH
 	# NOTE: 
 	# Option 3.A
-	labyrinths_search_dir = "../labyrinths/search"
+	labyrinths_search_dir = "labyrinths/search"
 	parent_dir = Path(__file__).parent.resolve()
 	# # input_search_dir_absolute = Path(parent_dir, labyrinths_search_dir)
 	test_all_searches(labyrinths_search_dir, debug)
