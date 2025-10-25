@@ -163,6 +163,8 @@ import argparse, heapq, random, re, sys, tracemalloc
 VERSION = "1.0.1"
 PATHFINDER_TITLE = "Labyrinth Pathfinder by El Daro"
 DEFAULT_LABYRINTHS_DIR = "labyrinths"
+DEFAULT_SEARCH_DIR = "labyrinths/search"
+DEFAULT_INVALID_DIR = "labyrinths/invalid"
 
 #---------------------------------------------------------------------------
 # Classes                                                                  |
@@ -406,7 +408,7 @@ class Labyrinth:
 
 	profiler = Profiler()
 
-	def __init__(self, source: Optional[Union[str, State]] = None, *,
+	def __init__(self, source: Optional[Union[str, List[str], list[str], State]] = None, *,
 		labyrinth_as_text: str = "", path_to_labyrinth: str = "", state: Optional[State] = None):
 		self.hallway = ()
 		self.rooms = ()
@@ -425,6 +427,10 @@ class Labyrinth:
 			# TODO: Check if this is actually a path
 			self.labyrinth_as_text = source
 			self.import_from_text(source)
+		elif isinstance(source, List) or isinstance(source, list):
+			self.labyrinth_as_text = "\n".join(source)
+			self.import_from_text(self.labyrinth_as_text)
+			# self.import_from_list(source)
 		elif isinstance(source, State):
 			self.import_from_state(source)
 		
@@ -446,7 +452,7 @@ class Labyrinth:
 		if labyrinth_as_text is not None and labyrinth_as_text != "":
 			if not self.is_valid_input(labyrinth_as_text):
 				print("Invalid labyrinth format")
-				return
+				raise Exception("Ivalid input: {0}".format(labyrinth_as_text))
 			self.labyrinth_as_text = labyrinth_as_text
 		if self.labyrinth_as_text is None or self.labyrinth_as_text == "":
 			raise ValueError("No labyrinth text provided")
@@ -467,6 +473,10 @@ class Labyrinth:
 			except Exception as ex:
 				raise ex
 			self.import_from_text(self.labyrinth_as_text)
+
+	def import_from_list(self, list_of_strings: Union[List[str], list[str]]):
+		self.labyrinth_as_text = "\n".join(list_of_strings)
+		self.import_from_text(self.labyrinth_as_text)
 
 	def is_valid_input(self, labyrinth_as_text: str = "") -> bool:
 		'''
@@ -1726,7 +1736,8 @@ def test_all_generator_and_search(count: int = 1, parameters: Optional[Dict] = N
 		test_generator_and_search(random.choice(params_list), debug, verbose)
 		
 def run_tests(debug: bool = False):
-	labyrinths_dir = "labyrinths"
+	# labyrinths_dir = "labyrinths"
+	labyrinths_dir = DEFAULT_LABYRINTHS_DIR
 	parent_dir = Path(__file__).parent.resolve()
 	input_dir_absolute = Path(parent_dir, labyrinths_dir)
 	
@@ -1763,10 +1774,11 @@ def run_tests(debug: bool = False):
 	# SEARCH
 	# NOTE: 
 	# Option 3.A
-	labyrinths_search_dir = "labyrinths/search"
-	parent_dir = Path(__file__).parent.resolve()
-	# # input_search_dir_absolute = Path(parent_dir, labyrinths_search_dir)
-	test_all_searches(labyrinths_search_dir, debug)
+	# labyrinths_search_dir = "labyrinths/search"
+	# labyrinths_search_dir = DEFAULT_SEARCH_DIR
+	# parent_dir = Path(__file__).parent.resolve()
+	# # # input_search_dir_absolute = Path(parent_dir, labyrinths_search_dir)
+	# test_all_searches(labyrinths_search_dir, debug)
 
 	#-----------------------
 	# Option 3.B
@@ -1791,6 +1803,15 @@ def run_tests(debug: bool = False):
 	# Option 4.A
 	# count = 10
 	# test_all_generator_and_search(count = count, debug = debug)
+
+	#-----------------------
+	# INVALID INPUT
+	# Option 5.A
+	labyrinths_invalid_dir = DEFAULT_INVALID_DIR
+	parent_dir = Path(__file__).parent.resolve()
+	print("INVALID DIR: {0}".format(labyrinths_invalid_dir))
+	test_all_searches(labyrinths_invalid_dir, debug)
+	# solve_from_text()
 
 #------------------------------------------------------------------------------
 # Arguments processing
@@ -1851,7 +1872,7 @@ def solve_from_input(input_path: Optional[str] = None, debug: bool = False, verb
 				print()
 		
 			try:
-				input_as_text = stdin.read().strip()
+				input_as_text = stdin.read().strip().split("\n")
 			except EOFError:				# Ctrl+D or Ctrl+Z
 				if debug:
 					print("\nInput read")
@@ -1876,7 +1897,8 @@ def solve_from_input(input_path: Optional[str] = None, debug: bool = False, verb
 				solve_from_text(input_as_text, debug, verbose)
 				return
 
-		input_as_text = "\n".join(input_as_text)
+		# if type(input_as_text) is List or type(input_as_text) is list:
+		# 	input_as_text = "\n".join(input_as_text)
 		solve_from_text(input_as_text, debug, verbose)
 
 	except Exception as ex:
@@ -1973,13 +1995,13 @@ def parse_arguments():
 					 help = "Generate labyrinths with various depths, numbers of rooms and hallway lengths")
 	
 	# Generator options
-	parser.add_argument('-C', "--count",     type = int, default = 1,
+	parser.add_argument('-C', "--count",     type = int,
 					 help = "Number of labyrinths to generate")
 	parser.add_argument('-D', "--depth",     type = int,
 					 help = "Room depth")
 	parser.add_argument('-R', "--rooms",     type = int,
 					 help = "Number of rooms to generate (has no effect if --generate_nonstandard is used)")
-	parser.add_argument('-H', '-L', "--hallway_length", type = int, default = 11,
+	parser.add_argument('-H', '-L', "--hallway_length", type = int,
 					 help = "Hallway length")
 
 	# Tests and profiler
