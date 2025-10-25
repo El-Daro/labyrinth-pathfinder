@@ -120,18 +120,20 @@ There are essentially two ways of running the program:
 1. Generate and solve labyrinths with default or specified parameters.
 2. Solve pre-defined labyrinth either from text, or from file, or from console input.
 See more on generator options and other parameters:
+
 - [CLI usage examples](docs/examples/cli.md)
 - [Python interpeter/scripting usage examples](docs/examples/scripting.md)
 
-### Command line arguments
+
+## Command line arguments
 
 ### Common
-#### Positional arguments:
+### Positional arguments:
 | Option | Short | Type | Default | Description |
 |--------|-------|------|---------|-------------|
 | `INPUT_FILE` | - | path | stdin | Path to the input file or folder (optional). If neither is provided, parses the user input. Enter an empty line and use `Ctrl+D` on Linux or `Ctrl+Z` on Windows to finilize the input |
 
-#### Optional arguments:
+### Optional arguments:
 | Option | Short | Type | Default | Description |
 |--------|-------|------|---------|-------------|
 | `--help` | `-h` | - | - | Show help |
@@ -139,13 +141,13 @@ See more on generator options and other parameters:
 | `--debug` | `-d` | flag | off | Debug output |
 
 ### Generator
-#### Major Generator options:
+### Major Generator options:
 | Option | Short | Type | Default | Description |
 |--------|-------|------|---------|-------------|
 | `--generate AMOUNT` | `-G` | int | - | Number of labyrinths to generate |
 | `--generate_nonstandard` | `-N` | flag | off | If provided, generates labyrinths with various depths, numbers of rooms and hallway lengths |
 
-#### Generator parameters:
+### Generator parameters:
 *These have no effect if `--generate_nonstandard` is used, aside from the `--count` parameter.*
 
 | Option | Short | Type | Default | Description |
@@ -155,7 +157,7 @@ See more on generator options and other parameters:
 | `--rooms AMOUNT` | `-R` | int | - | Number of rooms to generate. Implicitly defaults to 4 everywhere inside the code. This parameter does not have a default value |
 | `--hallway_length LENGTH` | `-L` | int | 11 | Length of the hallway to generate |
 
-##### Tests and profiler
+### Tests and profiler
 | Option | Short | Type | Default | Description |
 |--------|-------|------|---------|-------------|
 | `--profile` | `-P` | flag | off | If passed, performance profiling will be enabled |
