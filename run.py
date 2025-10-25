@@ -1,6 +1,6 @@
 #pylint:disable=W0312
 #===========================================================================#
-#  Version: 1.0.0                                                           #
+#  Version: 1.0.1                                                           #
 #     Name: Labyrinth Pathfinder                                            #
 #   Author: El Daro                                                         #
 # Assuming hash can hash cache, how many cache hashes hash has?             #
@@ -17,23 +17,26 @@
 #                                                                           #
 #   GENERATOR                                                               #
 #    Use it to automatically generate and solve new labyrinths              #
-#    -G, --generate GENERATE                                                #
+#    -G, --generate AMOUNT                                                  #
 #        Number of labyrinths to generate                                   #
 #    -N, --generate_nonstandard                                             #
 #        Generate labyrinths with various depths,                           #
 #        numbers of rooms and hallway lengths                               #
 #                                                                           #
 #   GENERATOR PARAMETERS                                                    #
-#    This group has no effect if --generate_nonstandard is used             #
+#    This group has no effect if --generate_nonstandard is used,            #
+#    except for the `--count` option                                        #
 #    -C, --count COUNT            | Number of labyrinths to generate        #
 #    -D, --depth DEPTH            | Room depth                              #
 #    -R, --rooms ROOMS            | Number of rooms to generate             #
-#        (has no effect if --generate_nonstandard is used)                  #
-#    -H, -L, --hallway_length HALLWAY_LENGTH                                #
+#    -H, -L, --hallway_length LENGTH                                        #
 #         Hallway length                                                    #
+#                                                                           #
+#   TESTING AND PROFILING                                                   #
 #    -P, --profiler               | Enable profiler                         #
 #    -T, --tests                  | Invoke standard tests from a            #
 #        pre-defined input folder (comes with the repo)                     #
+#                                                                           #
 #---------------------------------------------------------------------------#
 #---------------------------------CHANGELOG---------------------------------#
 #---------------------------------------------------------------------------#
@@ -151,16 +154,16 @@ from functools import wraps
 from os import name as os_name
 from pathlib import Path
 from time import perf_counter, process_time, time
-from typing import Dict, List, Tuple, Optional, Set, Union
+from typing import Dict, List, Optional, Tuple, Set, Union
 from sys import getsizeof, stdin
 
 import argparse, heapq, random, re, tracemalloc
 
 #---------------------------------------------------------------------------
 # DEFAULTS
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 PATHFINDER_TITLE = "Labyrinth Pathfinder by El Daro"
-DEFAULT_LABYRINTHS_DIR = "../labyrinths"
+DEFAULT_LABYRINTHS_DIR = "labyrinths"
 
 #---------------------------------------------------------------------------
 # Classes                                                                  |
@@ -238,14 +241,17 @@ class File():
 
 # NOTE: Used to track memory usage as well, but it slows the process down dramatically
 class Profiler:
-	"""Simple but effective profiler for A* testing."""
-	
+	'''
+	A very basic profiler that analyzes execution time.
+	Used to track memory usage as well, but it slows the process down dramatically.
+	Unly uncomment it when you really NEED to analyze the memory usage.
+	'''
+
 	def __init__(self):
 		self.enabled = True
 		self.results = []
 	
 	def __call__(self, func):
-		"""Decorator usage."""
 		@wraps(func)
 		def wrapper(*args, **kwargs):
 			if not self.enabled:
@@ -272,9 +278,8 @@ class Profiler:
 		return wrapper
 	
 	def summary(self):
-		"""Print summary statistics."""
 		if not self.results:
-			print("\nNo profiling data collected")
+			print("\n  No profiling data collected\n")
 			return
 		
 		times = [result['time'] for result in self.results]
@@ -790,7 +795,7 @@ class Labyrinth:
 			hallway_string += self._decode(cell)
 		return hallway_string + "#\n"
 
-	# ([2, 1], [3, 4], [2, 3], [4, 1]) -> ###B#C#B#D###
+	# ((2, 1), (3, 4), (2, 3), (4, 1)) -> ###B#C#B#D###
 											#A#D#C#A#
 											#########
 	def unpack_rooms(self, state: Optional[State] = None) -> str:
@@ -807,7 +812,7 @@ class Labyrinth:
 			str: rooms string representation
 
 		Example:
-			([2, 1], [3, 4], [2, 3], [4, 1]) -> ###B#C#B#D###
+			((2, 1), (3, 4), (2, 3), (4, 1)) -> ###B#C#B#D###
 												  #A#D#C#A#
 												  #########
 		'''
@@ -922,7 +927,7 @@ class Labyrinth:
 		for resident in room:
 			if resident == 0:				# Empty cell
 				continue					# But the search continues
-			elif resident != obj:		# Resident does not belong
+			elif resident != obj:			# Resident does not belong
 				return False
 			
 		return True
@@ -1462,7 +1467,7 @@ class Generator():
 		Rooms are filled at random.
 
 		Returns:
-			Labyrinth: A labyrinth object with a random initial position.
+			Labyrinth: A labyrinth object with a random initial state.
 		'''
 		if state is None:
 			self.state = self.generate_new_state(rooms, depth, hallway_length)
@@ -1789,7 +1794,7 @@ def run_tests(debug: bool = False):
 	# test_all_generator_and_search(count = count, debug = debug)
 
 #------------------------------------------------------------------------------
-# Arguments parsing
+# Arguments processing
 @profiler
 def solve_from_text(input_as_text: str, debug: bool = False, verbose: bool = False):
 # def solve_from_file(file_path: str, debug: bool = False, verbose: bool = False):
@@ -1926,7 +1931,7 @@ def invoke_labyrinth_solver(args):
 			else:
 				# python .\run.py --generate N --depth D --rooms R --hallway_length H
 				solve_from_generators(args.depth, args.rooms, args.hallway_length,
-							generator_amount, args.debug, args.verbose)
+								generator_amount, args.debug, args.verbose)
 		else:
 			# python .\run.py
 			solve_from_input(debug = args.debug, verbose = args.verbose)
@@ -1934,9 +1939,11 @@ def invoke_labyrinth_solver(args):
 	except Exception as ex:
 		raise ex	
 
+#------------------------------------------------------------------------------
+# Arguments parsing
 def parse_arguments():
 	parser = argparse.ArgumentParser(description = PATHFINDER_TITLE)
-	parser.add_argument("input_path",        nargs = '?',
+	parser.add_argument("input_path",        nargs = '?', default = DEFAULT_LABYRINTHS_DIR,
 					 help = "Path to the input file or folder")
 	
 	parser.add_argument('-d', "--debug",     action = "store_true", 
