@@ -1,6 +1,6 @@
 #pylint:disable=W0312
 #===========================================================================#
-#  Version: 1.0.1                                                           #
+#  Version: 1.1.0                                                           #
 #     Name: Labyrinth Pathfinder                                            #
 #   Author: El Daro                                                         #
 # Assuming hash can hash cache, how many cache hashes hash has?             #
@@ -69,29 +69,38 @@
 # - Added room positions                                                    #
 # - Improved calculation of accessible hallway nodes                        #
 # - SOLVER:                                                                 #
-#   - Logic for pathfinding and cost calculation                            #
-#   - Implemented solve() method                                            #
-#   - Implemented get_possible_moves() method                               #
-#   - Implemented _moves_room_to_hallway() method                           #
-#   - Implemented _moves_room_to_room() method                              #
-#   - Implemented _try_move_to_destination() method                         #
-#   - Implemented _is_path_clear() method                                   #
-#   - Modified _moves_room_to_hallway() method                              #
-#   - Implemented _moves_hallway_to_room() method                           #
+#    - Logic for pathfinding and cost calculation                           #
+#    - Implemented solve() method                                           #
+#    - Implemented get_possible_moves() method                              #
+#    - Implemented _moves_room_to_hallway() method                          #
+#    - Implemented _moves_room_to_room() method                             #
+#    - Implemented _try_move_to_destination() method                        #
+#    - Implemented _is_path_clear() method                                  #
+#    - Modified _moves_room_to_hallway() method                             #
+#    - Implemented _moves_hallway_to_room() method                          #
 #                                                                           #
-#   - Fixed energy cost computation and heuristics                          #
-#   - Fixed move generation and search logic                                #
-#   - Fixed it again                                                        #
-#   - And again                                                             #
-#   - It works                                                              #
+#    - Fixed energy cost computation and heuristics                         #
+#    - Fixed move generation and search logic                               #
+#    - Fixed it again                                                       #
+#    - And again                                                            #
+#    - It works                                                             #
 #                                                                           #
 # 2025.10.25                                                                #
-#   - Added profiler                                                        #
-#   - Added a simpler way to measure execution time (aside from profiler)   #
-#   - Fixed some visual representation                                      #
-#   - Cleaned up the code, deleted obsolete stuff                           #
-#   - Fixed various issues                                                  #
-#   - Implemented command line arguments                                    #
+#    - Added profiler                                                       #
+#    - Added a simpler way to measure execution time (aside from profiler)  #
+#    - Fixed some visual representation                                     #
+#    - Cleaned up the code, deleted obsolete stuff                          #
+#    - Fixed various issues                                                 #
+#    - Implemented command line arguments                                   #
+# 2025.10.26                                                                #
+#    - Added `List[str]` and `list[str]` as another possible input format	#
+#      for Labyrinth														#
+#    - Got rid of all the default states for the CLI arguments				#
+#    - Added testing of invalid inputs										#
+#    - Improved CLI arguments validation									#
+#    - Fixed incorrect input source being used in the Labyrinth constructor #
+#    - Added default paths for the test source directories                  #
+#                                                                           #
 #---------------------------------------------------------------------------#
 # TODO:                                                                     #
 #    - State history                                                        #
@@ -160,7 +169,7 @@ import argparse, heapq, random, re, sys, tracemalloc
 
 #---------------------------------------------------------------------------
 # DEFAULTS
-VERSION = "1.0.1"
+VERSION = "1.1.0"
 PATHFINDER_TITLE = "Labyrinth Pathfinder by El Daro"
 DEFAULT_LABYRINTHS_DIR = "labyrinths"
 DEFAULT_SEARCH_DIR = "labyrinths/search"
@@ -1823,10 +1832,9 @@ def solve_from_text(input_as_text: str, debug: bool = False, verbose: bool = Fal
 		# # print(file_obj)
 		# input_as_text = str(File.read(Path(file_obj)))
 
-		if not input_as_text:
-			print("Warning: Empty input received", file=sys.stderr)
-		
-		print("input_as_text:\n{0}".format(input_as_text), file=sys.stderr)
+		if not input_as_text or len(input_as_text) == 0 or input_as_text == "":
+			print("Warning: Empty input received", file = sys.stderr)
+			raise Exception("Warning: Empty input received")
 
 		if debug or verbose:
 			print("Labyrinth read directly from stdin:\n")
@@ -1896,9 +1904,7 @@ def solve_from_input(input_path: Optional[str] = None, debug: bool = False, verb
 				input_as_text = str(File.read(file_obj))
 				solve_from_text(input_as_text, debug, verbose)
 				return
-
-		# if type(input_as_text) is List or type(input_as_text) is list:
-		# 	input_as_text = "\n".join(input_as_text)
+			
 		solve_from_text(input_as_text, debug, verbose)
 
 	except Exception as ex:
@@ -1946,7 +1952,7 @@ def read_labyrinth_from_file(path):
 
 def invoke_labyrinth_solver(args):
 	try:
-		if args.input_path:
+		if args.input_path is not None and args.input_path != "":
 			# python ./run.py labyrinth.txt
 			file_try = Path(args.input_path)
 			if file_try.is_dir() or file_try.is_file():
