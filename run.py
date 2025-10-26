@@ -1967,7 +1967,7 @@ def invoke_labyrinth_solver(args):
 			elif args.count:
 				generator_amount = args.count
 			else:
-				generator_amount = 4
+				generator_amount = 1
 			if args.generate_nonstandard:
 				# python .\run.py --generate_nonstandard --count N
 				test_all_generator_and_search(count = generator_amount,

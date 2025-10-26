@@ -155,7 +155,7 @@ See more on generator options and other parameters:
 | `--count AMOUNT` | `-C` | int | 1 | Number of labyrinths to generate. Synonymous to `--generate` |
 | `--depth DEPTH` | `-D` | int | - | Room depth to generate. Implicitly defaults to 2 everywhere inside the code. This parameter does not have a default value |
 | `--rooms AMOUNT` | `-R` | int | - | Number of rooms to generate. Implicitly defaults to 4 everywhere inside the code. This parameter does not have a default value |
-| `--hallway_length LENGTH` | `-L` | int | 11 | Length of the hallway to generate |
+| `--hallway_length LENGTH` | `-L` | int | - | Length of the hallway to generate |
 
 ### Tests and profiler
 | Option | Short | Type | Default | Description |
