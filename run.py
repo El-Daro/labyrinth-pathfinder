@@ -324,6 +324,7 @@ class Labyrinth:
 	hallway length, accessible hallway positions, the number of rooms and depth of each room.
 	Provides various methods to import the labyrinth from:
 	  - Text
+	  - List of strings
 	  - File (given a path to the file)
 	  - State (given a state)
 
