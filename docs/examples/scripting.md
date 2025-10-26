@@ -85,9 +85,9 @@ Rooms: ((1, 2), (2, 4), (3, 4), (3, 1))
      #####
 
 >>> labyrinth
+
 Hallway: (0, 0, 0, 0, 0, 0, 0)
 Rooms: ((3, 2, 1, 1), (4, 2, 3, 4))
-
 
 # Retrieve the last generated state:
 >>> last_state = generator.state_history[-1]
