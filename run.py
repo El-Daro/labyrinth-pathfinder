@@ -2027,7 +2027,7 @@ def main():
 	# debug = True
 	debug = args.debug
 	if debug:
-		print('\n{:-^67}'.format("Labyrinth Pathfinder by El Daro"))
+		print('\n{:-^67}'.format(PATHFINDER_TITLE))
 		print('  VERSION: {0}'.format(VERSION))
 
 	if args.profiler:
