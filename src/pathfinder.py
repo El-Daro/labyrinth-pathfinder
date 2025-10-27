@@ -1,15 +1,15 @@
 #pylint:disable=W0312
 
 #---------------------------------------------------------------#
-# Version: 0.9.9												#
+# Version: 1.0.5												#
 # Labyrinth Pathfinder											#
 # Assuming hash can hash cache, how many cache hashes hash has? #
 #---------------------------------------------------------------#
 
 #---------------------------------------------------------------
 # 25.10.22
-# Added decoding from compacted state to readable and graphical formats
-
+# - Added decoding from compacted state to readable and graphical formats
+# 
 # 25.10.23
 # - Finalized input processing and parsing
 # - Decided on the state representation (State class)
@@ -23,7 +23,7 @@
 # - Added support for different hallway lengths
 # - Added support for different start positions
 # - Added support for different room depth
-
+# 
 # 24.10.25
 # - Fixed Generator
 # - Improved generator
@@ -76,8 +76,16 @@
 #			-P, --profiler			| Enable profiler
 #			-T, --tests				| Invoke standard tests from a pre-defined input folder (comes with the repo)
 
+#---------------------------------------------------------------
 # TODO:
-#	- REPO
+#    - State history
+#    - Binary encoding
+#        Each node is represented by a 3-bit binary number
+#          b000 - . (empty)
+#          b001 - A
+#          b010 - B
+#          b011 - C
+#          b100 - D
 #---------------------------------------------------------------
 
 #---------------------------------------------------------------
@@ -119,39 +127,32 @@
 # Min cost: 44169
 # 
 #---------------------------------------------------------------
-# 
-# Binary encoding (not implemented yet):
-#  Each node is represented by a 3-bit binary number
-# b000 - . (empty)
-# b001 - A
-# b010 - B
-# b011 - C
-# b100 - D
-# 
-#---------------------------------------------------------------
 
 from dataclasses import dataclass, field
 from functools import wraps
 from os import name as os_name
 from pathlib import Path
 from time import perf_counter, process_time, time
-from typing import Dict, List, Tuple, Optional, Set, Union
+from typing import Dict, List, Optional, Tuple, Set, Union
 from sys import getsizeof, stdin
 
-import argparse, heapq, random, re, tracemalloc
+import argparse, heapq, random, re, sys, tracemalloc
 
 #---------------------------------------------------------------
 # DEFAULTS
-VERSION = "0.9.9"
+VERSION = "1.0.5"
 PATHFINDER_TITLE = "Labyrinth Pathfinder by El Daro"
 DEFAULT_LABYRINTHS_DIR = "../labyrinths"
+DEFAULT_SEARCH_DIR = "../labyrinths/search"
+DEFAULT_INVALID_DIR = "../labyrinths/invalid"
 
 # Global
 
 
-#------------------------------------------------------------------------------
+#---------------------------------------------------------------------------
 # Classes
-#------------------------------------------------------------------------------
+#---------------------------------------------------------------------------
+
 
 #----------------------------------------
 # Class for handling files and their names
@@ -225,14 +226,17 @@ class File():
 
 # NOTE: Used to track memory usage as well, but it slows the process down dramatically
 class Profiler:
-	"""Simple but effective profiler for A* testing."""
+	'''
+	A very basic profiler that analyzes execution time.
+	Used to track memory usage as well, but it slows the process down dramatically.
+	Unly uncomment it when you really NEED to analyze the memory usage.
+	'''
 	
 	def __init__(self):
 		self.enabled = True
 		self.results = []
 	
 	def __call__(self, func):
-		"""Decorator usage."""
 		@wraps(func)
 		def wrapper(*args, **kwargs):
 			if not self.enabled:
@@ -259,9 +263,8 @@ class Profiler:
 		return wrapper
 	
 	def summary(self):
-		"""Print summary statistics."""
 		if not self.results:
-			print("\nNo profiling data collected")
+			print("\n No profiling data collected\n")
 			return
 		
 		times = [result['time'] for result in self.results]
@@ -296,6 +299,7 @@ class Labyrinth:
 	hallway length, accessible hallway positions, the number of rooms and depth of each room.
 	Provides various methods to import the labyrinth from:
 	  - Text
+	  - List of strings
 	  - File (given a path to the file)
 	  - State (given a state)
 
@@ -389,7 +393,7 @@ class Labyrinth:
 
 	profiler = Profiler()
 
-	def __init__(self, source: Optional[Union[str, State]] = None, *,
+	def __init__(self, source: Optional[Union[str, List[str], list[str], State]] = None, *,
 		labyrinth_as_text: str = "", path_to_labyrinth: str = "", state: Optional[State] = None):
 		self.hallway = ()
 		self.rooms = ()
@@ -406,8 +410,12 @@ class Labyrinth:
 		
 		elif isinstance(source, str) and source != "":
 			# TODO: Check if this is actually a path
-			self.labyrinth_as_text = labyrinth_as_text
+			self.labyrinth_as_text = source
 			self.import_from_text(source)
+		elif isinstance(source, List) or isinstance(source, list):
+			self.labyrinth_as_text = "\n".join(source)
+			self.import_from_text(self.labyrinth_as_text)
+			# self.import_from_list(source)
 		elif isinstance(source, State):
 			self.import_from_state(source)
 		
@@ -429,7 +437,7 @@ class Labyrinth:
 		if labyrinth_as_text is not None and labyrinth_as_text != "":
 			if not self.is_valid_input(labyrinth_as_text):
 				print("Invalid labyrinth format")
-				return
+				raise Exception("Ivalid input: {0}".format(labyrinth_as_text))
 			self.labyrinth_as_text = labyrinth_as_text
 		if self.labyrinth_as_text is None or self.labyrinth_as_text == "":
 			raise ValueError("No labyrinth text provided")
@@ -450,6 +458,10 @@ class Labyrinth:
 			except Exception as ex:
 				raise ex
 			self.import_from_text(self.labyrinth_as_text)
+
+	def import_from_list(self, list_of_strings: Union[List[str], list[str]]):
+		self.labyrinth_as_text = "\n".join(list_of_strings)
+		self.import_from_text(self.labyrinth_as_text)
 
 	def is_valid_input(self, labyrinth_as_text: str = "") -> bool:
 		'''
@@ -777,7 +789,7 @@ class Labyrinth:
 			hallway_string += self._decode(cell)
 		return hallway_string + "#\n"
 
-	# ([2, 1], [3, 4], [2, 3], [4, 1]) -> ###B#C#B#D###
+	# ((2, 1), (3, 4), (2, 3), (4, 1)) -> ###B#C#B#D###
 											#A#D#C#A#
 											#########
 	def unpack_rooms(self, state: Optional[State] = None) -> str:
@@ -794,7 +806,7 @@ class Labyrinth:
 			str: rooms string representation
 
 		Example:
-			([2, 1], [3, 4], [2, 3], [4, 1]) -> ###B#C#B#D###
+			((2, 1), (3, 4), (2, 3), (4, 1)) -> ###B#C#B#D###
 												  #A#D#C#A#
 												  #########
 		'''
@@ -1236,7 +1248,7 @@ class Labyrinth:
 		return None
 		
 
-#---------------------------------------
+#---------------------------------------------------------------------------
 # Generator class
 class Generator():
 	'''
@@ -1449,7 +1461,7 @@ class Generator():
 		Rooms are filled at random.
 
 		Returns:
-			Labyrinth: A labyrinth object with a random initial position.
+			Labyrinth: A labyrinth object with a random initial state.
 		'''
 		if state is None:
 			self.state = self.generate_new_state(rooms, depth, hallway_length)
@@ -1459,12 +1471,12 @@ class Generator():
 	
 		return self.labyrinth
 
-#------------------------------------------------------------------------------
+#---------------------------------------------------------------------------
 # Decorators
 # Profiler
 profiler = Profiler()
 
-#------------------------------------------------------------------------------
+#---------------------------------------------------------------------------
 # Tests
 def display_labyrinth_info(labyrinth: Labyrinth, debug: bool = False, verbose: bool = False):
 	print("\nLabyrinth reconstructed from the inner state representation:\n")
@@ -1709,7 +1721,8 @@ def test_all_generator_and_search(count: int = 1, parameters: Optional[Dict] = N
 		test_generator_and_search(random.choice(params_list), debug, verbose)
 		
 def run_tests(debug: bool = False):
-	labyrinths_dir = "../labyrinths"
+	# labyrinths_dir = "labyrinths"
+	labyrinths_dir = DEFAULT_LABYRINTHS_DIR
 	parent_dir = Path(__file__).parent.resolve()
 	input_dir_absolute = Path(parent_dir, labyrinths_dir)
 	
@@ -1746,10 +1759,11 @@ def run_tests(debug: bool = False):
 	# SEARCH
 	# NOTE: 
 	# Option 3.A
-	labyrinths_search_dir = "../labyrinths/search"
-	parent_dir = Path(__file__).parent.resolve()
+	# labyrinths_search_dir = "../labyrinths/search"
+	# labyrinths_search_dir = DEFAULT_SEARCH_DIR
+	# parent_dir = Path(__file__).parent.resolve()
 	# # input_search_dir_absolute = Path(parent_dir, labyrinths_search_dir)
-	test_all_searches(labyrinths_search_dir, debug)
+	# test_all_searches(labyrinths_search_dir, debug)
 
 	#-----------------------
 	# Option 3.B
@@ -1775,8 +1789,17 @@ def run_tests(debug: bool = False):
 	# count = 10
 	# test_all_generator_and_search(count = count, debug = debug)
 
+	#-----------------------
+	# INVALID INPUT
+	# Option 5.A
+	labyrinths_invalid_dir = DEFAULT_INVALID_DIR
+	parent_dir = Path(__file__).parent.resolve()
+	print("INVALID DIR: {0}".format(labyrinths_invalid_dir))
+	test_all_searches(labyrinths_invalid_dir, debug)
+	# solve_from_text()
+
 #------------------------------------------------------------------------------
-# Arguments parsing
+# Arguments processing
 @profiler
 def solve_from_text(input_as_text: str, debug: bool = False, verbose: bool = False):
 # def solve_from_file(file_path: str, debug: bool = False, verbose: bool = False):
@@ -1784,6 +1807,10 @@ def solve_from_text(input_as_text: str, debug: bool = False, verbose: bool = Fal
 		# file_obj = str(Path(file_path).resolve())
 		# # print(file_obj)
 		# input_as_text = str(File.read(Path(file_obj)))
+
+		if not input_as_text or len(input_as_text) == 0 or input_as_text == "":
+			print("Warning: Empty input received", file = sys.stderr)
+			raise Exception("Warning: Empty input received")
 
 		if debug or verbose:
 			print("Labyrinth read directly from stdin:\n")
@@ -1803,6 +1830,10 @@ def solve_from_text(input_as_text: str, debug: bool = False, verbose: bool = Fal
 
 		print(solved)
 	
+	except EOFError as ex:
+		print("\nEOF received (empty input)", file = sys.stderr)
+		return ""
+
 	except Exception as ex:
 		raise ex
 
@@ -1819,12 +1850,13 @@ def solve_from_input(input_path: Optional[str] = None, debug: bool = False, verb
 			else:
 				help_message = "To exit enter a new line and type END"
 			
-			print("Paste or type the graphical representation of the labyrinth below.")
-			print(help_message)
-			print()
+			if verbose and stdin.isatty():
+				print("Paste or type the graphical representation of the labyrinth below.")
+				print(help_message)
+				print()
 		
 			try:
-				input_as_text = stdin.read().strip()
+				input_as_text = stdin.read().strip().split("\n")
 			except EOFError:				# Ctrl+D or Ctrl+Z
 				if debug:
 					print("\nInput read")
@@ -1896,29 +1928,39 @@ def read_labyrinth_from_file(path):
 
 def invoke_labyrinth_solver(args):
 	try:
-		if args.input_path:
-			# From file argument: ./run.py input.txt
-			# input_as_text = read_labyrinth_from_file(args.input_path)
-			solve_from_input(input_path = args.input_path, debug = args.debug, verbose = args.verbose)
+
+		if args.input_path is not None and args.input_path != "":
+			# python ./run.py labyrinth.txt
+			file_try = Path(args.input_path)
+			if file_try.is_dir() or file_try.is_file():
+				solve_from_input(input_path = args.input_path, debug = args.debug, verbose = args.verbose)
+			# else:
+			# 	print("Input is not a path to file or directory: {0}".format(args.input_path), file = sys.stderr)
+			# 	raise Exception("Input is not a path to file or directory: {0}".format(args.input_path))
 		elif args.depth or args.rooms or args.count or args.generate or args.generate_nonstandard:
 			if args.generate:
 				generator_amount = args.generate
 			elif args.count:
 				generator_amount = args.count
 			else:
-				generator_amount = 4
+				generator_amount = 1
 			if args.generate_nonstandard:
+				# python .\run.py --generate_nonstandard --count N
 				test_all_generator_and_search(count = generator_amount,
 								debug = args.debug, verbose = args.verbose)
 			else:
+				# python .\run.py --generate N --depth D --rooms R --hallway_length H
 				solve_from_generators(args.depth, args.rooms, args.hallway_length,
 							generator_amount, args.debug, args.verbose)
 		else:
+			# python .\run.py
 			solve_from_input(debug = args.debug, verbose = args.verbose)
 	
 	except Exception as ex:
 		raise ex	
 
+#------------------------------------------------------------------------------
+# Arguments parsing
 def parse_arguments():
 	parser = argparse.ArgumentParser(description = PATHFINDER_TITLE)
 	parser.add_argument("input_path",        nargs = '?',
@@ -1935,13 +1977,13 @@ def parse_arguments():
 					 help = "Generate labyrinths with various depths, numbers of rooms and hallway lengths")
 	
 	# Generator options
-	parser.add_argument('-C', "--count",     type = int, default = 1,
+	parser.add_argument('-C', "--count",     type = int,
 					 help = "Number of labyrinths to generate")
 	parser.add_argument('-D', "--depth",     type = int,
 					 help = "Room depth")
 	parser.add_argument('-R', "--rooms",     type = int,
 					 help = "Number of rooms to generate (has no effect if --generate_nonstandard is used)")
-	parser.add_argument('-H', '-L', "--hallway_length", type = int, default = 11,
+	parser.add_argument('-H', '-L', "--hallway_length", type = int,
 					 help = "Hallway length")
 
 	# Tests and profiler
@@ -1960,7 +2002,7 @@ def main():
 	# debug = True
 	debug = args.debug
 	if debug:
-		print('\n{:-^67}'.format("Labyrinth Pathfinder by El Daro"))
+		print('\n{:-^67}'.format(PATHFINDER_TITLE))
 		print('  VERSION: {0}'.format(VERSION))
 
 	if args.profiler:
@@ -1968,13 +2010,14 @@ def main():
 	else:
 		profiler.enabled = False
 
-	# Parse and solve
+	# Some pre-defined tests
 	if args.tests:
 		run_tests(debug = False)
 		if args.profiler:
 			profiler.summary()
 	
 	else:
+		# The main solver
 		invoke_labyrinth_solver(args)
 
 if __name__ == "__main__":
