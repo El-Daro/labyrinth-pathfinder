@@ -1787,7 +1787,7 @@ def run_tests(debug: bool = False):
 	# labyrinths_search_dir = "labyrinths/search"
 	# labyrinths_search_dir = DEFAULT_SEARCH_DIR
 	# parent_dir = Path(__file__).parent.resolve()
-	# # # input_search_dir_absolute = Path(parent_dir, labyrinths_search_dir)
+	# # input_search_dir_absolute = Path(parent_dir, labyrinths_search_dir)
 	# test_all_searches(labyrinths_search_dir, debug)
 
 	#-----------------------
@@ -1856,7 +1856,7 @@ def solve_from_text(input_as_text: str, debug: bool = False, verbose: bool = Fal
 		print(solved)
 	
 	except EOFError as ex:
-		print("\nEOF received (empty input)", file=sys.stderr)
+		print("\nEOF received (empty input)", file = sys.stderr)
 		return ""
 
 	except Exception as ex:
@@ -1988,7 +1988,7 @@ def invoke_labyrinth_solver(args):
 # Arguments parsing
 def parse_arguments():
 	parser = argparse.ArgumentParser(description = PATHFINDER_TITLE)
-	parser.add_argument("input_path",        nargs = '?', # default = "None",
+	parser.add_argument("input_path",        nargs = '?',
 					 help = "Path to the input file or folder")
 	
 	parser.add_argument('-d', "--debug",     action = "store_true", 
@@ -2034,7 +2034,6 @@ def main():
 		profiler.enabled = True
 	else:
 		profiler.enabled = False
-
 	
 	# Some pre-defined tests
 	if args.tests:
