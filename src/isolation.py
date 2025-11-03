@@ -1,34 +1,70 @@
 #pylint:disable=W0312
 
-#---------------------------------------------------------------#
-# Version: 0.2.2												#
-# Virus:Isolation												#
-# Through tough though thorough thought							#
-#---------------------------------------------------------------#
+#---------------------------------------------------------------------------#
+# Version: 0.2.2															#
+# Virus:Isolation															#
+# Through tough though thorough thought.									#
+#---------------------------------------------------------------------------#
 
-#---------------------------------------------------------------
-#
+#---------------------------------------------------------------------------#
+#-------------------------COMMAND LINE ARGUMENTS----------------------------#
+#---------------------------------------------------------------------------#
 #	positional arguments:
-#  		input_path				| Path to the input file or folder
+#  		input_string			| Path to the input file or folder
 #
 #		options:
 #  		-h, --help				| show this help message and exit
 #		-d, --debug				| Debug output
 #		-v, --verbose			| Verbose output
 #		-P, --profiler			| Enable profiler
-#		-T, --tests				| Invoke standard tests from a pre-defined input folder (comes with the repo)
+#		-T, --tests				| Invoke standard tests from a pre-defined
+# 								|	input folder (comes with the repo)
 #		-O, --option OPTION		| Defines what specific tests to run
 #			OPTION				| DEFAULT, EXAMPLE, FROM_FILE
-
-#---------------------------------------------------------------
+#---------------------------------------------------------------------------#
+#---------------------------------CHANGELOG---------------------------------#
+#---------------------------------------------------------------------------#
+# v0.2.X
+#	- 
+#---------------------------------------------------------------------------#
 # TODO:
 #	- Everything
-#---------------------------------------------------------------
+#---------------------------------------------------------------------------#
 
-#---------------------------------------------------------------
-# Find the minimal cost of reaching the goal state, where goal state is:
+#---------------------------------------------------------------------------#
+# Given a graph defined as edges between nodes, find the correct sequence of
+# edges to sever in order to prevent the virus from reaching the gateways.
+#
+# The Virus finds the closes gateway and tries to reach it.
+# The system acts first by severing the edge to the closest gateway.
+# Then the Virus moves. 
+#
+# Input example:
+#	a-b
+#	a-c
+#	b-d
+#	b-A
+#	c-f
+#	d-e
+#	d-B
+#	e-f
+#	f-C
+#
+# Visual representation:
+#     A   B
+#     |   |
+# a---b---d
+# |       |
+# c---f---e
+#     |
+#     C
+#
+# Correct output:
+#	A-b
+#	B-d
+#	C-f
 # 
-#---------------------------------------------------------------
+#---------------------------------------------------------------------------#
 
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
