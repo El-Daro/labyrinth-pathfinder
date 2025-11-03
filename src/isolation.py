@@ -1,7 +1,7 @@
 #pylint:disable=W0312
 
 #---------------------------------------------------------------------------#
-# Version: 0.2.2															#
+# Version: 0.2.3															#
 # Virus:Isolation															#
 # Through tough though thorough thought.									#
 #---------------------------------------------------------------------------#
@@ -24,6 +24,8 @@
 #---------------------------------------------------------------------------#
 #---------------------------------CHANGELOG---------------------------------#
 #---------------------------------------------------------------------------#
+# v0.2.3
+#	- Improved debugging and visual representation
 # v0.2.X
 #	- 
 #---------------------------------------------------------------------------#
@@ -79,7 +81,7 @@ import argparse, heapq, random, re, sys, tracemalloc
 
 #---------------------------------------------------------------
 # DEFAULTS
-VERSION = "0.2.2"
+VERSION = "0.2.3"
 ISOLATION_TITLE = "Virus:Isolation by El Daro"
 DEFAULT_LABYRINTHS_DIR = "../graphs"
 DEFAULT_SEARCH_DIR = "../graphs/search"
@@ -501,6 +503,9 @@ class Virus:
 	'''
 	
 	'''
+	DEFAULT_LIMITS = {
+		'OUTPUT': 9
+	}
 	_graph: Graph
 	pos_initial: str = 'a'
 	profiler = Profiler()
@@ -539,19 +544,29 @@ class Virus:
 	
 	@property
 	def nodes(self):
-		return self._graph.nodes
+		return sorted(self._graph.nodes)
 	
 	@property
 	def node_edges(self):
-		return self._graph.node_edges
+		edges_string = "" if len(self._graph.node_edges) < self.DEFAULT_LIMITS['OUTPUT'] else "{ "
+		suffix = "\n" if len(self._graph.node_edges) < self.DEFAULT_LIMITS['OUTPUT'] else ", "
+		postfix = "" if len(self._graph.node_edges) < self.DEFAULT_LIMITS['OUTPUT'] else " }"
+		for node, neighbors in self._graph.node_edges.items():
+			edges_string += f"'{node}': {neighbors}" + suffix
+		return (edges_string.strip(", ") + postfix).strip()
 	
 	@property
 	def gateways(self):
-		return self._graph.gateways
+		return sorted(self._graph.gateways)
 	
 	@property
 	def gateway_edges(self):
-		return self._graph.gateway_edges
+		edges_string = "" if len(self._graph.gateway_edges) < self.DEFAULT_LIMITS['OUTPUT'] else "{ "
+		suffix = "\n" if len(self._graph.gateway_edges) < self.DEFAULT_LIMITS['OUTPUT'] else ", "
+		postfix = "" if len(self._graph.gateway_edges) < self.DEFAULT_LIMITS['OUTPUT'] else " }"
+		for node, neighbors in self._graph.gateway_edges.items():
+			edges_string += f"'{node}': {neighbors}" + suffix
+		return (edges_string.strip(", ") + postfix).strip()
 	
 	@property
 	def result(self):
@@ -570,12 +585,14 @@ class Virus:
 	# TODO: Define for solved and not solved states
 	def get_state_readable(self):
 		if self._result is not None:
-			print(f"Targets: {self._result.targets_found}")
-			print(f"Distance: {self._result.distance}")
-			print(f"Parents: {self._result.parents}")
+			return(f"Targets: {self._result.targets_found}"
+				   f"Distance: {self._result.distance}"
+				   f"Parents: {self._result.parents}")
+		else:
+			return ("Targets: N/D\nDistance: N/D\nParents: N/D")
 
 	def get_state_graphical(self):
-		print("Not implemented yet")
+		return "Not implemented yet"
 
 	def move(self):
 		self._result = self._graph.bfs(self.pos_current)
@@ -598,14 +615,16 @@ def display_graph_info(virus: Virus, debug: bool = False, verbose: bool = False)
 	# print(virus)
 	# print(graph.get_state_readable())
 	if verbose:
-		print(virus.nodes)
-		print(f"Nodes: {virus.nodes}")
-		print(f"Gateways: {virus.gateways}")
-		print(f"Node edges: {virus.node_edges}")
-		print(f"Gateway edges: {virus.gateway_edges}")
-	if debug:
-		print("Alternative display methods:\n")
-		virus
+		print(virus)
+		print(f"{'Nodes: ':>16} {virus.nodes}")
+		print(f"{'Gateways: ':>16} {virus.gateways}")
+		print(f"{'Node edges: ':>16}\n{virus.node_edges}")
+		print(f"{'Gateway edges: ':>16}\n{virus.gateway_edges}")
+	# if debug:
+	# 	if verbose:
+	# 		print()
+	# 	print("Alternative display methods:\n")
+	# 	virus
 	print()
 
 def test_agnostic(title: str = "NO TITLE", subtitle: str = "", input_text: str = "", debug: bool = False, verbose: bool = False):
@@ -621,8 +640,8 @@ def test_agnostic(title: str = "NO TITLE", subtitle: str = "", input_text: str =
 	virus = Virus(input_text)
 	display_graph_info(virus, debug, verbose)
 
-	virus.solve()
-	display_graph_info(virus, debug, verbose)
+	# virus.solve()
+	# display_graph_info(virus, debug, verbose)
 
 	return None
 
