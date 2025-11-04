@@ -1,7 +1,7 @@
 #pylint:disable=W0312
 
 #---------------------------------------------------------------------------#
-# Version: 0.4.1															#
+# Version: 0.4.2															#
 # Virus:Isolation															#
 # Through tough though thorough thought.									#
 #---------------------------------------------------------------------------#
@@ -47,6 +47,10 @@
 #	  current state of the graph
 # v0.4.1
 #	- Implemented test wtih pre-defined examples (in-code)
+# v0.4.2
+#	- Improved debug and verbose outputs
+#	- Added state representation for any given step
+#	- Added verbose output during the game loop to see the steps
 #---------------------------------------------------------------------------#
 # TODO:
 #	- Corner cases
@@ -101,7 +105,7 @@ import argparse, heapq, random, re, sys, tracemalloc
 
 #---------------------------------------------------------------
 # DEFAULTS
-VERSION = "0.4.1"
+VERSION = "0.4.2"
 ISOLATION_TITLE = "Virus:Isolation by El Daro"
 DEFAULT_GRAPHS_DIR = "../graphs"
 DEFAULT_SEARCH_DIR = "../graphs/search"
@@ -240,9 +244,9 @@ class Profiler:
 		print(f"PROFILING SUMMARY ({len(self.results)} runs)")
 		print(f"{'='*67}")
 		print(f"{'Total time: ':>20} {sum(times):>8,.3f} s")
-		print(f"{'Average time: ':>20} {sum(times) / len(times):>7,.3f} s")
-		print(f"{'Min time: ':>20} {min(times):>7.3f} s")
-		print(f"{'Max time: ':>20} {max(times):>7.3f} s")
+		print(f"{'Average time: ':>20} {sum(times) / len(times):>8,.3f} s")
+		print(f"{'Min time: ':>20} {min(times):>8.3f} s")
+		print(f"{'Max time: ':>20} {max(times):>8.3f} s")
 		# print(f"Avg memory:   {sum(memories) / len(memories) / 1024 / 1024:.2f} MB")
 		# print(f"Peak memory:  {max(memories) / 1024 / 1024:.2f} MB")
 		print(f"{'='*67}")
@@ -445,10 +449,15 @@ class Graph:
 			raise ValueError("Invalid input graph format")
 		
 		graph_rows = self.graph_as_text.replace("\t", "").replace(",", "").strip().splitlines()
-		
+		suffix = ", "
+		self._graph_as_text_simple = ""
+
 		for row in graph_rows:
 			node_from, node_to = row.strip().split("-")
 			self.add_edge(node_from, node_to)
+			self._graph_as_text_simple += row + suffix
+		
+		self._graph_as_text_simple = self._graph_as_text_simple.strip(suffix)
 
 	def _build_subgraphs(self):
 		visited = set()
@@ -567,7 +576,7 @@ class Virus:
 	
 	'''
 	DEFAULT_LIMITS = {
-		'OUTPUT': 9
+		'OUTPUT': 8
 	}
 	_graph: Graph
 	pos_initial: str = 'a'
@@ -589,8 +598,6 @@ class Virus:
 		else:
 			print("No input provided")
 			raise ValueError("No input provided")
-		
-		self.pos_current = self.pos_initial
 
 
 	# PROPERTIES
@@ -648,8 +655,47 @@ class Virus:
 	def __str__(self):
 		return self.get_state_graphical()
 
-	# TODO: Define for solved and not solved states
-	def get_state_readable(self):
+	def get_state_readable(self, step: int = -1):
+		if self.steps is None or len(self.steps) == 0:
+			return None
+
+		state_as_string = ""
+		suffix			= " | "
+		lengths			= {
+			'priority_path': 20
+		}
+		state_as_string += str(step) + suffix
+
+
+		if (self.steps[step].position is None):
+			state_as_string += "..." + suffix
+		else:
+			state_as_string += str(self.steps[step].position) + suffix
+
+		if (self.steps[step].priority_path_current is None):
+			state_as_string += "..." + suffix
+		else:
+			state_as_string += "{0:<25}".format(str(self.steps[step].priority_path_current)) + suffix
+			# state_as_string += str(self.steps[step].priority_path_current) + suffix
+
+		if (self.steps[step].severed_edge is None):
+			state_as_string += "..."
+		else:
+			state_as_string += str(self.steps[step].severed_edge)
+
+		# if (self.steps[step].priority_path_next is None):
+		# 	state_as_string += "..." + suffix
+		# else:
+		# 	state_as_string += str(self.steps[step].priority_path_next) + suffix
+
+		# state_as_string += str(self.steps[step].position) + suffix
+		# state_as_string += str(self.steps[step].priority_path_current) + suffix
+		# state_as_string += str(self.steps[step].severed_edge) + suffix
+		# # state_as_string += str(self.steps[step].priority_path_next)
+
+		return state_as_string
+
+	def get_bfsresult_readable(self):
 		if self._result is not None:
 			return(f"Targets: {self._result.targets_found}"
 				   f"Distance: {self._result.distance_shortest}"
@@ -658,16 +704,21 @@ class Virus:
 			return ("Targets: N/D\nDistance: N/D\nParents: N/D")
 
 	def get_state_graphical(self):
+		counter = 0
 		state = ""
 		visited = set(tuple())
+		suffix = "\n"
 		for node, neighbors in self._graph.node_edges.items():
 			for neighbor in neighbors:
 				if (node, neighbor) not in visited:
-					state += f"{node}-{neighbor}\n"
+					counter += 1
+					state += f"{node}-{neighbor}" + suffix
 					visited.add((node, neighbor))
 					visited.add((neighbor, node))
-		
-		state.strip()
+
+		if counter > self.DEFAULT_LIMITS['OUTPUT']:
+			state = state.replace("\n", ", ").strip(", ")
+		state = state.strip(suffix)
 
 		return state
 	
@@ -707,7 +758,7 @@ class Virus:
 		else:
 			return priority_path[1]
 	
-	def _update_history(self, step_counter):
+	def _update_history(self, step_counter, *, verbose: bool = False):
 		self.results_history.append(self._result)
 		self.steps.append(State(
 			position = self.pos_current,
@@ -721,7 +772,10 @@ class Virus:
 		if step_counter > 0 and len(self.steps) > 0:
 			self.steps[step_counter - 1].priority_path_next = self._priority_path
 
-	def game_loop(self):
+		if verbose:
+			print(self.get_state_readable(step_counter))
+
+	def game_loop(self, verbose: bool = False):
 		self.pos_current = self.pos_initial
 		self._graph._reset()
 		self._output = ""
@@ -761,7 +815,7 @@ class Virus:
 			self._severed_edge = { self._target: self._result.parents[self._target] }
 			self._graph.sever_gateway(self._target, self._result.parents[self._target])
 			
-			self._update_history(step_counter)
+			self._update_history(step_counter, verbose = verbose)
 			step_counter += 1
 
 		if step_counter > 0 and len(self.steps) > 0:
@@ -769,8 +823,8 @@ class Virus:
 		
 		return True
 	
-	def solve(self):
-		if not self.game_loop():
+	def solve(self, verbose: bool = False):
+		if not self.game_loop(verbose):
 			result = "Game over"
 		else:
 			result = ""
@@ -807,14 +861,14 @@ def get_input_paths(input_dir: str):
 def display_graph_info(virus: Virus, debug: bool = False, verbose: bool = False):
 	# print(virus)
 	# print(graph.get_state_readable())
-	if verbose:
+	if debug:
 		print("\n Graph reconstructed from the inner state representation:\n")
 		# print(virus)
 		print(virus)
 		print(f"{'Nodes: ':>16} {virus.nodes}")
 		print(f"{'Gateways: ':>16} {virus.gateways}")
 		print(f"{'Node edges: ':>16}\n{virus.node_edges}")
-		print(f"{'Gateway edges: ':>16}\n{virus.gateway_edges}")
+		print(f"\n{'Gateway edges: ':>16}\n{virus.gateway_edges}")
 		# print(f"{'Output: ':>16}\n")
 		# if virus._output is not None and virus._output != "":
 		# 	print(virus._output)
@@ -826,11 +880,11 @@ def display_graph_info(virus: Virus, debug: bool = False, verbose: bool = False)
 	print()
 
 def test_agnostic(title: str = "NO TITLE", subtitle: str = "", input_text: str = "", debug: bool = False, verbose: bool = False):
-	if debug or verbose:
-		print()
-		print('{:-^40}'.format(title))
-		if subtitle is not None and subtitle != "":
-			print("\n" + subtitle)
+	# if debug or verbose:
+	print()
+	print('{:-^40}'.format(title))
+	if subtitle is not None and subtitle != "":
+		print("\n" + subtitle)
 	if debug:
 		print("\n [DEBUG] Input:")
 		print(input_text)
@@ -838,8 +892,8 @@ def test_agnostic(title: str = "NO TITLE", subtitle: str = "", input_text: str =
 	virus = Virus(input_text)
 	display_graph_info(virus, debug, verbose)
 
-	result = virus.solve()
-	print(f"{'Output:':>16}")
+	result = virus.solve(verbose = verbose)
+	print(f"\n{'Output: ':>10}")
 	print(result)
 
 @profiler
@@ -878,8 +932,8 @@ def test_example(debug: bool = False, verbose: bool = False):
 		}
 		example_descriptions = {
 			'example_1': "Task Example 1",
-			'example_2': "Task Example 1",
-			'example_3': "Task Example 1",
+			'example_2': "Task Example 2",
+			'example_3': "Task Example 3",
 			'disconnected': "Example with a disconnected graph",
 			'loop': "Example with a loop"
 		}
@@ -1032,7 +1086,7 @@ def solve_from_text(input_as_text: str, debug: bool = False, verbose: bool = Fal
 			display_graph_info(virus, debug, verbose)
 
 		time_start = perf_counter()						# process_time()
-		solved = virus.solve()
+		solved = virus.solve(verbose = verbose)
 		time_elapsed = perf_counter() - time_start
 		if solved is not None and (debug or verbose):
 			# print("\n  Min cost: {0:,}".format(solved[1]))
@@ -1146,9 +1200,9 @@ def parse_arguments():
 def main():
 	args = parse_arguments()	
 	# NOTE: Manual
-	debug = True
-	# debug = args.debug
-	if debug:
+	# debug = True
+	debug = args.debug
+	if args.debug or args.verbose:
 		print('\n{:-^67}'.format(ISOLATION_TITLE))
 		print('  VERSION: {0}\n'.format(VERSION))
 
@@ -1160,8 +1214,8 @@ def main():
 	# Some pre-defined tests
 	if args.tests:
 		run_tests(args = args,
-				 debug = True,
-			   verbose = True)
+				 debug = args.debug,
+			   verbose = args.verbose)
 		
 	else:
 		# The main solver
