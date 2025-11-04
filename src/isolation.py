@@ -1,7 +1,7 @@
 #pylint:disable=W0312
 
 #---------------------------------------------------------------------------#
-# Version: 0.6.1															#
+# Version: 0.6.2															#
 # Virus:Isolation															#
 # Through tough though thorough thought.									#
 #---------------------------------------------------------------------------#
@@ -79,13 +79,15 @@
 #		- _get_severed_edge_as_string
 #	- Introduced new parameter for optional colouring of the steps history:
 #	  `-C`, `--colored`, `--coloured`
+# v0.6.2
+#	- Added coloring to the `Game Over` state
 #---------------------------------------------------------------------------#
 
 #---------------------------------------------------------------------------#
 # Given a graph defined as edges between nodes, find the correct sequence of
 # edges to sever in order to prevent the virus from reaching the gateways.
 #
-# The Virus finds the closes gateway and tries to reach it.
+# The Virus finds the closest gateway and tries to reach it.
 # The system acts first by severing the edge to the closest gateway.
 # Then the Virus moves. 
 #
@@ -130,7 +132,7 @@ import argparse, re, sys, tracemalloc
 
 #---------------------------------------------------------------
 # DEFAULTS
-VERSION = "0.6.1"
+VERSION = "0.6.2"
 ISOLATION_TITLE = "Virus:Isolation by El Daro"
 DEFAULT_GRAPHS_DIR = "../graphs"
 
@@ -988,7 +990,10 @@ class Virus:
 				raise Exception(f"Could not execute the move for the following path: {self._priority_path}")
 
 			if self.pos_current in self._graph.gateways:
-				self._game_over = f"You died.\nVirus reached gateway: {self.pos_current}"
+				self._game_over = str(COLOURS['LIGHT_RED'] + "You died.\n" +
+									  COLOURS['BROWN'] + "Virus reached gateway: " +
+									  COLOURS['RED'] + f"{self.pos_current}" + 
+									  COLOURS['LIGHT_GRAY'])
 				if debug and not verbose:
 					print_debug(self._game_over)
 				return False
@@ -1334,7 +1339,7 @@ def solve_from_text(input_as_text: str, *, colored: bool = False, debug: bool = 
 def solve_from_input(input_path: Optional[str] = None, colored: bool = False, debug: bool = False, verbose: bool = False):
 	# From the cli:   ./isolation.py < input.txt
 	#			 cat input.txt | ./isolation.py
-	#			 ./isolataion.py (manual)
+	#			 ./isolation.py (manual)
 	try:
 		if not input_path:
 			if os_name == 'nt':
@@ -1448,6 +1453,7 @@ def main():
 	if args.tests:
 		# Some pre-defined tests
 		run_tests(args = args,
+			   colored = args.colored,
 				 debug = args.debug,
 			   verbose = args.verbose)
 		
