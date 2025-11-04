@@ -1,7 +1,7 @@
 #pylint:disable=W0312
 
 #---------------------------------------------------------------------------#
-# Version: 0.2.3															#
+# Version: 0.3.0															#
 # Virus:Isolation															#
 # Through tough though thorough thought.									#
 #---------------------------------------------------------------------------#
@@ -26,8 +26,13 @@
 #---------------------------------------------------------------------------#
 # v0.2.3
 #	- Improved debugging and visual representation
-# v0.2.X
-#	- 
+# v0.3.0
+#	- Reworked BFSResult class
+#	- Added State class to keep track of the moves
+#	- Made the game cycle repeatable by introducing reset functionality
+#	- Fixed and improved agnostic BFS method
+#	- Added the main game cycle, including:
+#	  BFS search, target prioritization, edge severing and moves
 #---------------------------------------------------------------------------#
 # TODO:
 #	- Everything
@@ -69,6 +74,7 @@
 #---------------------------------------------------------------------------#
 
 from collections import defaultdict, deque
+from copy import deepcopy
 from dataclasses import dataclass, field
 from functools import wraps
 from os import name as os_name
@@ -81,7 +87,7 @@ import argparse, heapq, random, re, sys, tracemalloc
 
 #---------------------------------------------------------------
 # DEFAULTS
-VERSION = "0.2.3"
+VERSION = "0.3.0"
 ISOLATION_TITLE = "Virus:Isolation by El Daro"
 DEFAULT_LABYRINTHS_DIR = "../graphs"
 DEFAULT_SEARCH_DIR = "../graphs/search"
@@ -227,18 +233,30 @@ class Profiler:
 @dataclass
 class BFSResult:
 	'''Result of a BFS search'''
-	targets_found: set[str | None]
-	distance: int | None
+	targets_found: set[str] | None
+	distances: dict[str, int] | None
+	distance_shortest: int | None
 	parents: dict[str, str | None]
+
+@dataclass
+class State:
+	position: str | None
+	target: str | None
+	priority_path_current: list[str] | None
+	severed_edge: dict[str, str | None]
+	priority_path_next: list[str] | None
 
 class Graph:
 	'''
 	Describes a bidirectional graph and provides its basic methods.
 	That's it.
 	'''
+	_node_edges_initial: defaultdict[str, set[str]]
 	node_edges: defaultdict[str, set[str]]
+	_gateway_edges_initial: defaultdict[str, set[str]]
 	gateway_edges: defaultdict[str, set[str]]
 	nodes: set[str]
+	_gateways_initial: set[str]
 	gateways: set[str]
 	subgraphs: defaultdict[str, set[str]]
 
@@ -272,8 +290,16 @@ class Graph:
 			self.import_from_text(self.graph_as_text)
 		elif isinstance(source, Graph):
 			self.import_from_graph(source)
+		else:
+			raise ValueError("Invalid input type")
+
+		self._post_init()
 		
-	
+	def _post_init(self):
+		self._node_edges_initial = deepcopy(self.node_edges)
+		self._gateway_edges_initial = deepcopy(self.gateway_edges)
+		self._gateways_initial = deepcopy(self.gateways)
+		
 	def import_from_graph(self, graph: 'Graph'):
 		self.node_edges = graph.node_edges if graph.node_edges else defaultdict(set)
 		self.gateway_edges = graph.gateway_edges if graph.gateway_edges else defaultdict(set)
@@ -391,7 +417,7 @@ class Graph:
 			self.nodes.add(node_from)
 			self.nodes.add(node_to)
 	
-	def sever_gateway(self, node, gateway):
+	def sever_gateway(self, gateway, node):
 		self.gateway_edges[gateway].discard(node)
 		self.node_edges[node].discard(gateway)
 		self.gateways.discard(gateway)
@@ -447,6 +473,11 @@ class Graph:
 
 		self._build_subgraphs()
 
+	def _reset(self):
+		self.node_edges = deepcopy(self._node_edges_initial)
+		self.gateway_edges = deepcopy(self._gateway_edges_initial)
+		self.gateways = deepcopy(self._gateways_initial)
+
 	def get_all_neighbors(self, node):
 		return self.node_edges[node] | self.gateway_edges[node]
 
@@ -463,7 +494,7 @@ class Graph:
 	# NOTE: Dataclass with specific properties
 	#		How to interpret them is up to the caller
 	def bfs(self, node_start: str = 'a', node_targets: Optional[set[str]] = None, early_exit: bool = True):
-		result = BFSResult(set(), 0, {node_start: None})
+		result = BFSResult(set(), None, 0, {node_start: None})
 		# result.targets_found = {None}
 		# result.distance = 0
 		# result.parents = {node_start: None}
@@ -473,25 +504,43 @@ class Graph:
 		else:
 			targets = node_targets
 
+		if len(targets) == 0:
+			return result
+
 		# queue = [node_start]
 		# deque out of a list of tuples
 		queue = deque([(node_start, 0)])
 		visited = set()
+		visited.add(node_start)
 
 		while len(queue) > 0:
 			node_current, depth = queue.popleft()
 
+			# TODO: Rework to accomodate general case without early exit
+			#		BFSResult.distance should then be a dictionary of
+			#		'distance': '{ targets }'
 			if (early_exit and
-	   			result.distance is not None and
-	   			depth > result.distance):
+	   			result.distance_shortest is not None and
+				result.distance_shortest != 0 and
+				# result.distances[node_current] is not None and
+	   			# result.distances[node_current] != 0 and
+	   			depth > result.distance_shortest):
 				break
 
 			if node_current in targets:
-				if result.distance == 0:
-					result.distance = depth
+				if result.distances is None:
+					result.distances = dict()
+				result.distances[node_current] = depth
+				if result.distance_shortest == 0:
+					result.distance_shortest = depth
+				if result.targets_found is None:
+					result.targets_found = set()
 				result.targets_found.add(node_current)
 
 			for neighbor in sorted(self.node_edges[node_current]):
+				# NOTE: This check ensures alphabetical order of the parent nodes
+				#		Doing reverse lookup later on will only provide the priority path,
+				#		since no other would be recorded
 				if neighbor not in visited:
 					visited.add(neighbor)
 					result.parents[neighbor] = node_current
@@ -510,6 +559,8 @@ class Virus:
 	pos_initial: str = 'a'
 	profiler = Profiler()
 	_result: BFSResult
+	results_history: list[BFSResult]
+	steps: list[State]
 
 	def __init__(self, source: Optional[str | List[str] | list[str] | 'Graph'] = None, *,
 			  import_as_text: Optional[str] = None, path: str = "", graph: Optional['Graph'] = None):
@@ -576,6 +627,7 @@ class Virus:
 			print("No results were found", file = sys.stderr)
 			return None
 		
+	# REPRESENTATION
 	def __repr__(self):
 		return self.get_state_readable()
 
@@ -586,22 +638,126 @@ class Virus:
 	def get_state_readable(self):
 		if self._result is not None:
 			return(f"Targets: {self._result.targets_found}"
-				   f"Distance: {self._result.distance}"
+				   f"Distance: {self._result.distance_shortest}"
 				   f"Parents: {self._result.parents}")
 		else:
 			return ("Targets: N/D\nDistance: N/D\nParents: N/D")
 
 	def get_state_graphical(self):
 		return "Not implemented yet"
+	
+	# FUNCTIONAL
+	def _get_priority_target(self):
+		if self._result is None or self._result.targets_found is None:
+			raise Exception("No current BFS were found")
 
-	def move(self):
+		return sorted(self._result.targets_found)[0]
+
+	def _get_priority_path(self, target: str):
+		if (self._result is None or
+			self._result.parents is None or
+			self._result.distances is None or len (self._result.distances) == 0 or
+			target is None or target == ""):
+			raise Exception(f"No priority path found for target: {self._target}")
+		
+		node_current = target
+		priority_path = []
+		priority_path.append(node_current)
+		for step in range(self._result.distances[target]):
+			if node_current == self.pos_current:
+				break
+
+			# NOTE: Annoying particularity of Python not realizing that 'None'
+			#		will never be reached because of the check above
+			if node_current is not None:
+				node_current = self._result.parents[node_current]
+				priority_path.append(node_current)
+
+		priority_path.reverse()
+		return priority_path
+
+	def move(self, priority_path: list | List):
+		if priority_path is None or len(priority_path) < 2:
+			return None
+		else:
+			return priority_path[1]
+	
+	def _update_history(self, step_counter):
+		self.results_history.append(self._result)
+		self.steps.append(State(
+			position = self.pos_current,
+			target = self._target,
+			priority_path_current = self._priority_path,
+			severed_edge = self._severed_edge,
+			priority_path_next = None
+		))
+		# Retrofit the new priority path into the previous record
+		# (Handles the special case of the 0th step)
+		if step_counter > 0 and len(self.steps) > 0:
+			self.steps[step_counter - 1].priority_path_next = self._priority_path
+
+	def game_loop(self):
+		self.pos_current = self.pos_initial
+		self._graph._reset()
+		self._output = ""
 		self._result = self._graph.bfs(self.pos_current)
-		if self._result is not None and self._result.distance is not None:
-			self._result
-		return self._result
+		self.results_history = []
+		self.steps = list()
+		step_counter = 0
+		
+		while (self._result.targets_found is not None and
+			  len(self._result.targets_found) > 0):
+			# Step 1: Look for the nearest gateway in a changed graph
+			self._result = self._graph.bfs(self.pos_current)
+
+			if (self._result.targets_found is None or
+			  len(self._result.targets_found) == 0):
+				break
+			
+			# Step 2: Get the closest gateway
+			self._target = self._get_priority_target()
+
+			# Step 3: Get the priority path to it
+			self._priority_path = self._get_priority_path(self._target)
+
+			# Step 4: Move the virus
+			# NOTE: Skipping the first move because of the specific starting condition
+			if step_counter != 0:
+				self.pos_current = self.move(self._priority_path)
+	
+			if self.pos_current is None:
+				raise Exception(f"Could not execute the move for the following path: {self._priority_path}")
+
+			if self.pos_current in self._graph.gateways:
+				print("You died")
+				return False
+
+			# Step 5: Sever one of the gateway edges (based on priority)
+			self._severed_edge = { self._target: self._result.parents[self._target] }
+			self._graph.sever_gateway(self._target, self._result.parents[self._target])
+			
+			self._update_history(step_counter)
+			step_counter += 1
+
+		if step_counter > 0 and len(self.steps) > 0:
+			self.steps[step_counter - 1].priority_path_next = [""]
+		
+		return True
 	
 	def solve(self):
-		return None
+		if not self.game_loop():
+			result = "Game over"
+		else:
+			result = ""
+			for step in self.steps:
+				if len(step.severed_edge) > 1:
+					raise Exception(f"Too many severed edges in a step: {step.severed_edge}")
+				gateway, node = next(iter(step.severed_edge.items()))
+				result += f"{gateway}-{node}\n"
+
+		self._output = result.strip()
+
+		return self._output
 
 #---------------------------------------------------------------------------
 # Decorators
@@ -620,6 +776,9 @@ def display_graph_info(virus: Virus, debug: bool = False, verbose: bool = False)
 		print(f"{'Gateways: ':>16} {virus.gateways}")
 		print(f"{'Node edges: ':>16}\n{virus.node_edges}")
 		print(f"{'Gateway edges: ':>16}\n{virus.gateway_edges}")
+		# print(f"{'Output: ':>16}\n")
+		# if virus._output is not None and virus._output != "":
+		# 	print(virus._output)
 	# if debug:
 	# 	if verbose:
 	# 		print()
@@ -640,10 +799,9 @@ def test_agnostic(title: str = "NO TITLE", subtitle: str = "", input_text: str =
 	virus = Virus(input_text)
 	display_graph_info(virus, debug, verbose)
 
-	# virus.solve()
-	# display_graph_info(virus, debug, verbose)
-
-	return None
+	result = virus.solve()
+	print(f"{'Output:':>16}")
+	print(result)
 
 @profiler
 def test_default(debug: bool = False, verbose: bool = False):
@@ -767,7 +925,7 @@ def parse_arguments():
 					 help = "Verbose output")
 
 	# Tests and profiler
-	parser.add_argument('-P', "--profiler",  action = "store_true",
+	parser.add_argument('-P', "--profiler",  action = "store_true", default = True,
 					 help = "Enable profiler")
 	parser.add_argument('-T', "--tests",	 action = "store_true", default = True,
 					 help = "Invoke standard tests. You can specify what type of tests to run with the `--option` parameter")
