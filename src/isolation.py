@@ -1,7 +1,7 @@
 #pylint:disable=W0312
 
 #---------------------------------------------------------------------------#
-# Version: 0.5.0															#
+# Version: 0.5.1															#
 # Virus:Isolation															#
 # Through tough though thorough thought.									#
 #---------------------------------------------------------------------------#
@@ -60,6 +60,9 @@
 #	- Introduced complex examples in the \graphs\tests\ directory
 #	- Improved verbose output
 #	- Improved 'Game Over' state
+# v0.5.1
+#	- Added testing against correct outputs when launched with following
+#	  parameters: --tests --option FROM_DIR
 #---------------------------------------------------------------------------#
 # TODO:
 #	- Corner cases
@@ -114,11 +117,12 @@ import argparse, heapq, random, re, sys, tracemalloc
 
 #---------------------------------------------------------------
 # DEFAULTS
-VERSION = "0.5.0"
+VERSION = "0.5.1"
 ISOLATION_TITLE = "Virus:Isolation by El Daro"
 DEFAULT_GRAPHS_DIR = "../graphs"
 
 DEFAULT_TESTS_DIR = DEFAULT_GRAPHS_DIR + "/tests"
+DEFAULT_TESTS_OUTPUTS_DIR = DEFAULT_GRAPHS_DIR + "/outputs"
 DEFAULT_TESTS_FILE = DEFAULT_TESTS_DIR + "/graph_complex_1.txt"
 
 ARGS_DEF_OPTIONS = { "DEFAULT", "EXAMPLE", "FROM_FILE", "FROM_DIR" }
@@ -997,15 +1001,21 @@ def display_graph_info(virus: Virus, debug: bool = False, verbose: bool = False)
 	print()
 
 @profiler
-def test_agnostic(title: str = "NO TITLE", subtitle: str = "", input_text: str = "", debug: bool = False, verbose: bool = False):
+def test_agnostic(title: str = "NO TITLE",
+				  subtitle: str = "",
+				  input_text: str = "",
+				  output_canon: str = "",
+				  *, debug: bool = False, verbose: bool = False):
 	# if debug or verbose:
 	print()
 	print('{:-^67}'.format(title))
 	if subtitle is not None and subtitle != "":
-		print("\n" + subtitle)
+		print("\n" + subtitle + f" | {Path(input_text).name}")
 	if debug:
 		print("\n [DEBUG] Input:")
 		print(input_text)
+	if verbose:
+		print("")
 	
 	virus = Virus(input_text)
 	display_graph_info(virus, debug, verbose)
@@ -1015,6 +1025,12 @@ def test_agnostic(title: str = "NO TITLE", subtitle: str = "", input_text: str =
 	virus.display_steps_history(debug = debug)
 	print(f"\n{'Output: ':>10}")
 	print(result)
+	if output_canon is not None and output_canon != "":
+		if result == output_canon:
+			print("TEST PASSED")
+		else:
+			print("TEST FAILED")
+			print(f"Correct output should be:\n{output_canon}")
 	print(f"\n{'-'*67}")
 
 @profiler
@@ -1070,20 +1086,21 @@ def test_example(debug: bool = False, verbose: bool = False):
 			ex))
 
 @profiler
-def test_from_text(input_text: str, debug: bool = False, verbose: bool = False):
+def test_from_text(input_text: str, output_canon: str = "", debug: bool = False, verbose: bool = False):
 	try:
-		test_agnostic(title    = "TEST FROM TEXT",
-					subtitle   = "TESTS: Testing from text input",
-					input_text = input_text,
-					debug      = debug,
-					verbose    = verbose)
+		test_agnostic(title      = "TEST FROM TEXT",
+					subtitle     = "TESTS: Testing from text input",
+					input_text   = input_text,
+					output_canon = output_canon,
+					debug        = debug,
+					verbose      = verbose)
 
 	except Exception as ex:
 		print("Exception occurred while testing a graph.\n\n  Graph edges (input): {0}\n  Exception: {1}\n".format(
 			input_text, ex))
 
 @profiler
-def test_from_file_as_content(input_path: str, debug: bool = False, verbose: bool = False):
+def test_from_file_as_content(input_path: str, output_canon: str = "", debug: bool = False, verbose: bool = False):
 	try:
 		parent_dir = Path(__file__).parent.resolve()
 		input_path_absolute = Path(parent_dir, input_path)
@@ -1094,18 +1111,19 @@ def test_from_file_as_content(input_path: str, debug: bool = False, verbose: boo
 			print("Graph read directly from file:\n")
 			print(input_file)
 		
-		test_agnostic(title    = "TEST FROM FILE",
-					subtitle   = "TESTS: Testing from file",
-					input_text = input_file,
-					debug      = debug,
-					verbose    = verbose)
+		test_agnostic(title      = "TEST FROM FILE",
+					subtitle     = "TESTS: Testing from file",
+					input_text   = input_file,
+					output_canon = output_canon,
+					debug        = debug,
+					verbose      = verbose)
 
 	except Exception as ex:
 		print("Exception occurred while testing graph from file.\n\n  Path: {0}\n  Exception: {1}\n".format(
 			Path(input_path).resolve(), ex))
 
 @profiler
-def test_from_file_as_path(input_path: str, debug: bool = False, verbose: bool = False):
+def test_from_file_as_path(input_path: str, output_canon: str = "", debug: bool = False, verbose: bool = False):
 	try:
 		parent_dir = Path(__file__).parent.resolve()
 		input_path_absolute = Path(parent_dir, input_path)
@@ -1116,11 +1134,12 @@ def test_from_file_as_path(input_path: str, debug: bool = False, verbose: bool =
 			print("Graph read directly from file:\n")
 			print(input_file)
 		
-		test_agnostic(title    = "TEST FROM FILE",
-					subtitle   = "TESTS: Testing from file",
-					input_text = str(input_path_absolute),
-					debug      = debug,
-					verbose    = verbose)
+		test_agnostic(title      = "TEST FROM FILE",
+					subtitle     = "TESTS: Testing from file",
+					input_text   = str(input_path_absolute),
+					output_canon = output_canon,
+					debug        = debug,
+					verbose      = verbose)
 
 	except Exception as ex:
 		print("Exception occurred while testing graph from file.\n\n  Path: {0}\n  Exception: {1}\n".format(
@@ -1136,15 +1155,29 @@ def test_from_dir(input_path: str, debug: bool = False, verbose: bool = False):
 		path_absolute = Path(parent_dir, input_path).resolve()
 		if path_absolute.is_dir():
 			input_paths = get_input_paths(str(path_absolute))
+			output_edges = dict()
+			if input_path == DEFAULT_TESTS_DIR:
+				path_outputs_absolute = Path(parent_dir, DEFAULT_TESTS_OUTPUTS_DIR).resolve()
+				output_paths = get_input_paths(str(path_outputs_absolute))
+				for output_path in output_paths:
+					output_edges[Path(output_path).stem] = str(File.read(output_path))
 			for input_file_path in input_paths:
 				file_obj = Path(input_file_path).resolve()
-				input_as_text = str(File.read(file_obj))
-				test_from_file_as_path(input_file_path, debug = debug, verbose = verbose)
+				# input_as_text = str(File.read(file_obj))
+				output_canon = ""
+				if len(output_edges) > 0:
+					for stem in output_edges.keys():
+						if stem == file_obj.stem:
+							output_canon = output_edges[stem]
+				test_from_file_as_path(input_file_path,
+						   			   output_canon = output_canon,
+						   			   debug = debug,
+						   			   verbose = verbose)
 			return
 
 		elif Path(path_absolute).is_file() and Path(path_absolute).suffix == ".txt":
 			file_obj = Path(path_absolute).resolve()
-			input_as_text = str(File.read(file_obj))
+			# input_as_text = str(File.read(file_obj))
 			test_from_file_as_path(file_obj, debug = debug, verbose = verbose)
 			return
 
@@ -1313,7 +1346,7 @@ def parse_arguments():
 					 help = "Path to the test file or directory")
 	parser.add_argument("-O", "--option",
 					choices = ARGS_DEF_OPTIONS,
-					default = "FROM_FILE",
+					default = "FROM_DIR",
 					help = "Defines what specific tests to run")
 	
 	return parser.parse_args()
