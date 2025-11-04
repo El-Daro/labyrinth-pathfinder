@@ -1,7 +1,7 @@
 #pylint:disable=W0312
 
 #---------------------------------------------------------------------------#
-# Version: 0.5.1															#
+# Version: 0.6.0															#
 # Virus:Isolation															#
 # Through tough though thorough thought.									#
 #---------------------------------------------------------------------------#
@@ -63,9 +63,12 @@
 # v0.5.1
 #	- Added testing against correct outputs when launched with following
 #	  parameters: --tests --option FROM_DIR
-#---------------------------------------------------------------------------#
-# TODO:
-#	- Corner cases
+# v0.6.0
+#	- Introduced wrappers for the `print` function:
+# 	  print_error —> light red 
+# 	  print_debug —> brown
+#	  print_info  —> purple [+cyan]
+#	- Cleaned up the code
 #---------------------------------------------------------------------------#
 
 #---------------------------------------------------------------------------#
@@ -105,7 +108,7 @@
 
 from collections import defaultdict, deque
 from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import wraps
 from os import name as os_name
 from pathlib import Path
@@ -113,11 +116,11 @@ from time import perf_counter, process_time, time
 from typing import Dict, List, Optional, Tuple, Set, Union
 from sys import getsizeof, stdin
 
-import argparse, heapq, random, re, sys, tracemalloc
+import argparse, re, sys, tracemalloc
 
 #---------------------------------------------------------------
 # DEFAULTS
-VERSION = "0.5.1"
+VERSION = "0.6.0"
 ISOLATION_TITLE = "Virus:Isolation by El Daro"
 DEFAULT_GRAPHS_DIR = "../graphs"
 
@@ -127,13 +130,38 @@ DEFAULT_TESTS_FILE = DEFAULT_TESTS_DIR + "/graph_complex_1.txt"
 
 ARGS_DEF_OPTIONS = { "DEFAULT", "EXAMPLE", "FROM_FILE", "FROM_DIR" }
 
+#-------------------------------
 # Global
-
+COLOURS = {
+	"BLACK": "\033[0;30m",
+	"RED": "\033[0;31m",
+	"GREEN": "\033[0;32m",
+	"BROWN": "\033[0;33m",
+	"BLUE": "\033[0;34m",
+	"PURPLE": "\033[0;35m",
+	"CYAN": "\033[0;36m",
+	"LIGHT_GRAY": "\033[0;37m",
+	"DARK_GRAY": "\033[1;30m",
+	"LIGHT_RED": "\033[1;31m",
+	'LIGHT_GREEN': "\033[1;32m",
+	'YELLOW': "\033[1;33m",
+	'LIGHT_BLUE': "\033[1;34m",
+	'LIGHT_PURPLE': "\033[1;35m",
+	'LIGHT_CYAN': "\033[1;36m",
+	'LIGHT_WHITE': "\033[1;37m",
+	'BOLD': "\033[1m",
+	'FAINT': "\033[2m",
+	'ITALIC': "\033[3m",
+	'UNDERLINE': "\033[4m",
+	'BLINK': "\033[5m",
+	'NEGATIVE': "\033[7m",
+	'CROSSED': "\033[9m",
+	'END': "\033[0m"
+}
 
 #---------------------------------------------------------------------------
 # Classes
 #---------------------------------------------------------------------------
-
 
 #----------------------------------------
 # Class for handling files and their names
@@ -184,11 +212,11 @@ class File():
 						return(text_list)										# Return list
 
 		except FileNotFoundError:
-			print ("\nFile not found")
+			print_error("\nFile not found")
 			return None
-		except Exception as e:
-			print("\nSomething went wrong")
-			print(e)
+		except Exception as ex:
+			print_error(f"\nSomething went wrong while trying to read the file: {name}")
+			print_error(f"\nException: {ex}")
 			return None
 
 	@staticmethod
@@ -356,8 +384,8 @@ class Graph:
 					print(f"Invalid input graph format.\n  Path: {file_path}")
 					return
 			except Exception as ex:
-				print(f"Error importing graph from file: {file_path}")
-				print(f"  Exception: {ex}")
+				print_error(f"Error importing graph from file: {file_path}")
+				print_error(f"  Exception: {ex}")
 				raise ex
 			self.import_from_text(self.graph_as_text)
 
@@ -454,7 +482,6 @@ class Graph:
 	def sever_gateway(self, gateway, node):
 		self.gateway_edges[gateway].discard(node)
 		self.node_edges[node].discard(gateway)
-		# self.gateways.discard(gateway)
 
 	def _build_graph(self):
 		if self.graph_as_text is None or self.graph_as_text == "":
@@ -529,14 +556,11 @@ class Graph:
 
 		return False
 	
-	# NOTE: What should this function return though?
-	# NOTE: Dataclass with specific properties
-	#		How to interpret them is up to the caller
+	# NOTE: Q: What should this function return though?
+	# NOTE: A: Dataclass with specific properties
+	#		   How to interpret them is up to the caller
 	def bfs(self, node_start: str = 'a', node_targets: Optional[set[str]] = None, early_exit: bool = True):
 		result = BFSResult(set(), None, 0, {node_start: None})
-		# result.targets_found = {None}
-		# result.distance = 0
-		# result.parents = {node_start: None}
 
 		if node_targets is None:
 			targets = self.gateways
@@ -546,7 +570,6 @@ class Graph:
 		if len(targets) == 0:
 			return result
 
-		# queue = [node_start]
 		# deque out of a list of tuples
 		queue = deque([(node_start, 0)])
 		visited = set()
@@ -558,8 +581,6 @@ class Graph:
 			if (early_exit and
 	   			result.distance_shortest is not None and
 				result.distance_shortest != 0 and
-				# result.distances[node_current] is not None and
-	   			# result.distances[node_current] != 0 and
 	   			depth > result.distance_shortest):
 				break
 
@@ -698,7 +719,6 @@ class Virus:
 			state_as_string += "..." + suffix
 		else:
 			state_as_string += "{0:<30}".format(str(self.steps[step].priority_path_current)) + suffix
-			# state_as_string += str(self.steps[step].priority_path_current) + suffix
 
 		if (self.steps[step].severed_edge is None):
 			state_as_string += "..."
@@ -753,7 +773,7 @@ class Virus:
 					reduction = 3
 
 		if debug:
-			print(f"[DEBUG] [get_priority_string_width] Priority string width: {width}")
+			print_debug(f"[DEBUG] [get_priority_string_width] Priority string width: {width}")
 
 		return width
 
@@ -809,7 +829,6 @@ class Virus:
 				steps_as_text[counter] += "{0:<{w}}".format(
 					priority_path,
 					w = priority_width_current) + suffix
-				# state_as_string += str(self.steps[step].priority_path_current) + suffix
 
 			if (step.severed_edge is None):
 				steps_as_text[counter] += "..." + suffix
@@ -826,8 +845,6 @@ class Virus:
 				steps_as_text[counter] += "{0:<{w}}".format(
 					priority_path,
 					w = priority_width_current)
-				
-				# steps_as_text[counter] += str(step.priority_path_next) + suffix
 
 			counter += 1
 		
@@ -891,7 +908,7 @@ class Virus:
 			self.steps[step_counter - 1].priority_path_next = self._priority_path
 
 		if debug:
-			print(self.get_state_readable(step_counter))
+			print_debug(self.get_state_readable(step_counter))
 
 	def game_loop(self, debug: bool = False, verbose: bool = False):
 		self.pos_current = self.pos_initial
@@ -927,8 +944,8 @@ class Virus:
 
 			if self.pos_current in self._graph.gateways:
 				self._game_over = f"You died.\nVirus reached gateway: {self.pos_current}"
-				if debug:
-					print(self._game_over)
+				if debug and not verbose:
+					print_debug(self._game_over)
 				return False
 
 			# Step 5: Sever one of the gateway edges (based on priority)
@@ -976,27 +993,29 @@ def get_input_paths(input_dir: str):
 			input_paths.append(str(file_path.resolve()))
 	return input_paths
 
+def print_error(msg, *args, **kwargs):
+	print(COLOURS["LIGHT_RED"] + msg + COLOURS["LIGHT_GRAY"], *args, **kwargs)
+
+def print_debug(msg, *args, **kwargs):
+	print(COLOURS["BROWN"] + msg + COLOURS["LIGHT_GRAY"], *args, **kwargs)
+
+def print_info(msg, msg_additional: str = "", *args, **kwargs):
+	string = COLOURS["LIGHT_PURPLE"] + msg
+	if msg_additional is not None and msg_additional != "":
+		string += COLOURS["LIGHT_CYAN"] + msg_additional
+	print(string + COLOURS["LIGHT_GRAY"], *args, **kwargs)
+
 #---------------------------------------------------------------------------
 # Tests
 def display_graph_info(virus: Virus, debug: bool = False, verbose: bool = False):
-	# print(virus)
-	# print(graph.get_state_readable())
 	if debug or verbose:
-		print("\n Graph reconstructed from the inner state representation:\n")
-		# print(virus)
+		print_info("\n Graph reconstructed from the inner state representation:\n")
 		print(virus)
 	if debug:
-		print(f"{'Nodes: ':>16} {virus.nodes}")
-		print(f"{'Gateways: ':>16} {virus.gateways}")
-		print(f"{'Node edges: ':>16}\n{virus.node_edges}")
-		print(f"\n{'Gateway edges: ':>16}\n{virus.gateway_edges}")
-		# print(f"{'Output: ':>16}\n")
-		# if virus._output is not None and virus._output != "":
-		# 	print(virus._output)
-	# if verbose:
-	# 	if debug:
-	# 		print()
-	# 	print("Alternative display methods:\n")
+		print_debug(f"{'Nodes: ':>16} {virus.nodes}")
+		print_debug(f"{'Gateways: ':>16} {virus.gateways}")
+		print_debug(f"{'Node edges: ':>16}\n{virus.node_edges}")
+		print_debug(f"\n{'Gateway edges: ':>16}\n{virus.gateway_edges}")
 		
 	print()
 
@@ -1010,10 +1029,11 @@ def test_agnostic(title: str = "NO TITLE",
 	print()
 	print('{:-^67}'.format(title))
 	if subtitle is not None and subtitle != "":
-		print("\n" + subtitle + f" | {Path(input_text).name}")
+		print("\n" + subtitle + " | ", end="")
+		print_debug(f"{Path(input_text).name}")
 	if debug:
-		print("\n [DEBUG] Input:")
-		print(input_text)
+		print_debug("\n [DEBUG] Input:")
+		print_debug(input_text)
 	if verbose:
 		print("")
 	
@@ -1027,10 +1047,11 @@ def test_agnostic(title: str = "NO TITLE",
 	print(result)
 	if output_canon is not None and output_canon != "":
 		if result == output_canon:
-			print("TEST PASSED")
+			print(COLOURS["LIGHT_GREEN"] + "TEST PASSED" + COLOURS["LIGHT_GRAY"])
 		else:
-			print("TEST FAILED")
-			print(f"Correct output should be:\n{output_canon}")
+			print(COLOURS["LIGHT_RED"] + "TEST FAILED" + COLOURS["LIGHT_GRAY"])
+			print(f"Correct output should be:")
+			print_info(f"{output_canon}")
 	print(f"\n{'-'*67}")
 
 @profiler
@@ -1054,7 +1075,7 @@ def test_default(debug: bool = False, verbose: bool = False):
 					verbose    = verbose)
 		
 	except Exception as ex:
-		print("Exception occurred while running default test.\n\n  Input text: {0}\n  Exception: {1}\n".format(
+		print_error("Exception occurred while running default test.\n\n  Input text: {0}\n  Exception: {1}\n".format(
 			input_text, ex))
 
 @profiler
@@ -1082,7 +1103,7 @@ def test_example(debug: bool = False, verbose: bool = False):
 						verbose    = verbose)
 		
 	except Exception as ex:
-		print("Exception occurred while running default test.\n\n  Exception: {0}\n".format(
+		print_error("Exception occurred while running default test.\n\n  Exception: {0}\n".format(
 			ex))
 
 @profiler
@@ -1096,7 +1117,7 @@ def test_from_text(input_text: str, output_canon: str = "", debug: bool = False,
 					verbose      = verbose)
 
 	except Exception as ex:
-		print("Exception occurred while testing a graph.\n\n  Graph edges (input): {0}\n  Exception: {1}\n".format(
+		print_error("Exception occurred while testing a graph.\n\n  Graph edges (input): {0}\n  Exception: {1}\n".format(
 			input_text, ex))
 
 @profiler
@@ -1106,7 +1127,9 @@ def test_from_file_as_content(input_path: str, output_canon: str = "", debug: bo
 		input_path_absolute = Path(parent_dir, input_path)
 		
 		if debug or verbose:
-			print("\nInput file path: {0}\n".format(input_path_absolute))
+			print_info(msg = "\nInput file path: ", msg_additional = "{0}\n".format(input_path_absolute))
+			# print(COLOURS["LIGHT_PURPLE"] + "\nInput file path: " +
+		 	# 	  COLOURS["LIGHT_CYAN"] + "{0}\n".format(input_path_absolute) + COLOURS["LIGHT_GRAY"])
 			input_file = str(File.read(input_path_absolute))
 			print("Graph read directly from file:\n")
 			print(input_file)
@@ -1119,7 +1142,7 @@ def test_from_file_as_content(input_path: str, output_canon: str = "", debug: bo
 					verbose      = verbose)
 
 	except Exception as ex:
-		print("Exception occurred while testing graph from file.\n\n  Path: {0}\n  Exception: {1}\n".format(
+		print_error("Exception occurred while testing graph from file.\n\n  Path: {0}\n  Exception: {1}\n".format(
 			Path(input_path).resolve(), ex))
 
 @profiler
@@ -1129,7 +1152,7 @@ def test_from_file_as_path(input_path: str, output_canon: str = "", debug: bool 
 		input_path_absolute = Path(parent_dir, input_path)
 
 		if debug or verbose:
-			print("\nInput file path: {0}\n".format(input_path_absolute))
+			print_info(msg = "\nInput file path: ", msg_additional = "{0}\n".format(input_path_absolute))
 			input_file = str(File.read(input_path_absolute))
 			print("Graph read directly from file:\n")
 			print(input_file)
@@ -1142,14 +1165,14 @@ def test_from_file_as_path(input_path: str, output_canon: str = "", debug: bool 
 					verbose      = verbose)
 
 	except Exception as ex:
-		print("Exception occurred while testing graph from file.\n\n  Path: {0}\n  Exception: {1}\n".format(
+		print_error("Exception occurred while testing graph from file.\n\n  Path: {0}\n  Exception: {1}\n".format(
 			Path(input_path).resolve(), ex))
 		
 @profiler
 def test_from_dir(input_path: str, debug: bool = False, verbose: bool = False):
 	try:
 		if debug or verbose:
-			print("\nInput dir path: {0}\n".format(Path(input_path).resolve()))
+			print_info(msg = "\nInput dir path: ", msg_additional = "{0}\n".format(input_path))
 
 		parent_dir = Path(__file__).parent.resolve()
 		path_absolute = Path(parent_dir, input_path).resolve()
@@ -1163,7 +1186,6 @@ def test_from_dir(input_path: str, debug: bool = False, verbose: bool = False):
 					output_edges[Path(output_path).stem] = str(File.read(output_path))
 			for input_file_path in input_paths:
 				file_obj = Path(input_file_path).resolve()
-				# input_as_text = str(File.read(file_obj))
 				output_canon = ""
 				if len(output_edges) > 0:
 					for stem in output_edges.keys():
@@ -1177,12 +1199,11 @@ def test_from_dir(input_path: str, debug: bool = False, verbose: bool = False):
 
 		elif Path(path_absolute).is_file() and Path(path_absolute).suffix == ".txt":
 			file_obj = Path(path_absolute).resolve()
-			# input_as_text = str(File.read(file_obj))
 			test_from_file_as_path(file_obj, debug = debug, verbose = verbose)
 			return
 
 	except Exception as ex:
-		print("Exception occurred while testing graph from file.\n\n  Path: {0}\n  Exception: {1}\n".format(
+		print_error("Exception occurred while testing graph from file.\n\n  Path: {0}\n  Exception: {1}\n".format(
 			Path(input_path).resolve(), ex))
 
 @profiler
@@ -1191,11 +1212,11 @@ def run_tests(args, *, debug: bool = False, verbose: bool = False):
 		if args.input_string is not None and args.input_string != "":
 			test_from_file_as_content(args.input_string)
 		else:
-			print(f"[ERROR] TESTS: Invalid option: {args.option}")
+			print_error(f"[ERROR] TESTS: Invalid option: {args.option}")
 			raise ValueError(f"Invalid option: {args.option}")
 	else:
 		if debug:
-			print(f"[DEBUG] TESTS: Parameter passed: {args.option}")
+			print_debug(f"[DEBUG] TESTS: Parameter passed: {args.option}")
 
 		match args.option:
 			case "DEFAULT":
@@ -1205,16 +1226,12 @@ def run_tests(args, *, debug: bool = False, verbose: bool = False):
 			case "FROM_FILE":
 				if args.test_path is None or args.test_path == "":
 					path = DEFAULT_TESTS_FILE
-					# print("[ERROR] TESTS: No input path provided")
-					# raise ValueError("No input path provided")
 				else:
 					path = args.test_path
 				test_from_file_as_path(path, debug = debug, verbose = verbose)
 			case "FROM_DIR":
 				if args.test_path is None or args.test_path == "":
 					path = DEFAULT_TESTS_DIR
-					# print("[ERROR] TESTS: No input path provided")
-					# raise ValueError("No input path provided")
 				else:
 					path = args.test_path
 				test_from_dir(path, debug = debug, verbose = verbose)
@@ -1228,11 +1245,11 @@ def solve_from_text(input_as_text: str, debug: bool = False, verbose: bool = Fal
 	try:
 
 		if not input_as_text or len(input_as_text) == 0 or input_as_text == "":
-			print("Warning: Empty input received", file = sys.stderr)
+			print_debug("Warning: Empty input received", file = sys.stderr)
 			raise Exception("Warning: Empty input received")
 
 		if debug or verbose:
-			print("Graph read directly from stdin:\n")
+			print_info("Graph read directly from stdin:\n")
 			print(input_as_text)
 		
 		virus = Virus(input_as_text)
@@ -1243,7 +1260,6 @@ def solve_from_text(input_as_text: str, debug: bool = False, verbose: bool = Fal
 		solved = virus.solve(debug = debug, verbose = verbose)
 		time_elapsed = perf_counter() - time_start
 		if solved is not None and (debug or verbose):
-			# print("\n  Min cost: {0:,}".format(solved[1]))
 			print(f"\n{'Time elapsed: ':>20} {time_elapsed:>8.3f} s")
 			print(f"\n{'Steps: ':>10}")
 			virus.display_steps_history(debug = debug)
@@ -1252,7 +1268,7 @@ def solve_from_text(input_as_text: str, debug: bool = False, verbose: bool = Fal
 		print(solved)
 	
 	except EOFError as ex:
-		print("\nEOF received (empty input)", file = sys.stderr)
+		print_error("\nEOF received (empty input)", file = sys.stderr)
 		return ""
 
 	except Exception as ex:
@@ -1280,9 +1296,9 @@ def solve_from_input(input_path: Optional[str] = None, debug: bool = False, verb
 				input_as_text = stdin.read().strip().split("\n")
 			except EOFError:				# Ctrl+D or Ctrl+Z
 				if debug:
-					print("\nInput read")
+					print_debug(f"\nInput read")
 			except KeyboardInterrupt:		# Ctrl+C
-				print("\nCancelled")
+				print_error("\nInput cancelled by the user")
 				exit(0)
 
 		else:
@@ -1315,7 +1331,7 @@ def invoke_virus_isolation(args):
 			if file_try.is_dir() or file_try.is_file():
 				solve_from_input(input_path = args.input_string, debug = args.debug, verbose = args.verbose)
 			else:
-				print("Input is not a path to file or directory: {0}".format(args.input_string), file = sys.stderr)
+				print_error("Input is not a path to file or directory: {0}".format(args.input_string), file = sys.stderr)
 				raise Exception("Input is not a path to file or directory: {0}".format(args.input_string))
 			
 		else:
@@ -1346,7 +1362,7 @@ def parse_arguments():
 					 help = "Path to the test file or directory")
 	parser.add_argument("-O", "--option",
 					choices = ARGS_DEF_OPTIONS,
-					default = "FROM_DIR",
+					default = "DEFAULT",
 					help = "Defines what specific tests to run")
 	
 	return parser.parse_args()
@@ -1367,8 +1383,8 @@ def main():
 	else:
 		profiler.enabled = False
 
-	# Some pre-defined tests
 	if args.tests:
+		# Some pre-defined tests
 		run_tests(args = args,
 				 debug = args.debug,
 			   verbose = args.verbose)
