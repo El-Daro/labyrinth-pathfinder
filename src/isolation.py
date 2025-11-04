@@ -1,7 +1,7 @@
 #pylint:disable=W0312
 
 #---------------------------------------------------------------------------#
-# Version: 0.4.0															#
+# Version: 0.4.1															#
 # Virus:Isolation															#
 # Through tough though thorough thought.									#
 #---------------------------------------------------------------------------#
@@ -45,6 +45,8 @@
 # 	  graph as text or path to file or directory
 #	- Added default representation for the `__str__` method based on the
 #	  current state of the graph
+# v0.4.1
+#	- Implemented test wtih pre-defined examples (in-code)
 #---------------------------------------------------------------------------#
 # TODO:
 #	- Corner cases
@@ -99,7 +101,7 @@ import argparse, heapq, random, re, sys, tracemalloc
 
 #---------------------------------------------------------------
 # DEFAULTS
-VERSION = "0.4.0"
+VERSION = "0.4.1"
 ISOLATION_TITLE = "Virus:Isolation by El Daro"
 DEFAULT_GRAPHS_DIR = "../graphs"
 DEFAULT_SEARCH_DIR = "../graphs/search"
@@ -505,7 +507,7 @@ class Graph:
 
 		return False
 	
-	# TODO: What should this function return though?
+	# NOTE: What should this function return though?
 	# NOTE: Dataclass with specific properties
 	#		How to interpret them is up to the caller
 	def bfs(self, node_start: str = 'a', node_targets: Optional[set[str]] = None, early_exit: bool = True):
@@ -531,9 +533,6 @@ class Graph:
 		while len(queue) > 0:
 			node_current, depth = queue.popleft()
 
-			# TODO: Rework to accomodate general case without early exit
-			#		BFSResult.distance should then be a dictionary of
-			#		'distance': '{ targets }'
 			if (early_exit and
 	   			result.distance_shortest is not None and
 				result.distance_shortest != 0 and
@@ -806,10 +805,10 @@ def get_input_paths(input_dir: str):
 #---------------------------------------------------------------------------
 # Tests
 def display_graph_info(virus: Virus, debug: bool = False, verbose: bool = False):
-	print("\nGraph reconstructed from the inner state representation:\n")
 	# print(virus)
 	# print(graph.get_state_readable())
 	if verbose:
+		print("\n Graph reconstructed from the inner state representation:\n")
 		# print(virus)
 		print(virus)
 		print(f"{'Nodes: ':>16} {virus.nodes}")
@@ -867,10 +866,33 @@ def test_default(debug: bool = False, verbose: bool = False):
 		print("Exception occurred while running default test.\n\n  Input text: {0}\n  Exception: {1}\n".format(
 			input_text, ex))
 
-# TODO: Define examples from the original task
 @profiler
 def test_example(debug: bool = False, verbose: bool = False):
-	print("[ERROR] Examples aren't defined yet")
+	try:
+		example_graphs = {
+			'example_1': "a-b\na-c\nb-D\nc-D",
+			'example_2': "a-b\nb-c\nc-d\nb-A\nc-B\nd-C",
+			'example_3': "a-b\nb-c\nc-d\nc-e\nA-d\nA-e\nc-f\nc-g\nf-B\ng-B",
+			'disconnected': "a-b\nb-A\nb-B\nc-C",
+			'loop': "a-b\na-c\nb-d\nb-A\nc-f\nd-e\nd-B\ne-f\nf-C"
+		}
+		example_descriptions = {
+			'example_1': "Task Example 1",
+			'example_2': "Task Example 1",
+			'example_3': "Task Example 1",
+			'disconnected': "Example with a disconnected graph",
+			'loop': "Example with a loop"
+		}
+		for example_title, example_graph in example_graphs.items():
+			test_agnostic(title    = "EXAMPLES TEST",
+						subtitle   = example_descriptions[example_title],
+						input_text = example_graph,
+						debug      = debug,
+						verbose    = verbose)
+		
+	except Exception as ex:
+		print("Exception occurred while running default test.\n\n  Exception: {0}\n".format(
+			ex))
 
 @profiler
 def test_from_text(input_text: str, debug: bool = False, verbose: bool = False):
@@ -1114,7 +1136,7 @@ def parse_arguments():
 					 help = "Path to the test file or directory")
 	parser.add_argument("-O", "--option",
 					choices = ARGS_DEF_OPTIONS,
-					default = "FROM_DIR",
+					default = "EXAMPLE",
 					help = "Defines what specific tests to run")
 	
 	return parser.parse_args()
