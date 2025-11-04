@@ -1,7 +1,7 @@
 #pylint:disable=W0312
 
 #---------------------------------------------------------------------------#
-# Version: 0.6.0															#
+# Version: 0.6.1															#
 # Virus:Isolation															#
 # Through tough though thorough thought.									#
 #---------------------------------------------------------------------------#
@@ -15,6 +15,8 @@
 #		options:
 #  		-h, --help				| show this help message and exit
 #		-d, --debug				| Debug output
+#		-C, --colored, --coloured	|
+#			Colored output (only affects the steps history for now)
 #		-v, --verbose			| Verbose output
 #		-P, --profiler			| Enable profiler
 #		-T, --tests				| Invoke standard tests from a pre-defined
@@ -69,6 +71,14 @@
 # 	  print_debug —> brown
 #	  print_info  —> purple [+cyan]
 #	- Cleaned up the code
+# v0.6.1
+#	- Reworked `display_steps_history` method.
+# 	  Refactored into smaller methods:
+#		- _get_position_as_string
+#		- _get_priority_path_as_string
+#		- _get_severed_edge_as_string
+#	- Introduced new parameter for optional colouring of the steps history:
+#	  `-C`, `--colored`, `--coloured`
 #---------------------------------------------------------------------------#
 
 #---------------------------------------------------------------------------#
@@ -120,7 +130,7 @@ import argparse, re, sys, tracemalloc
 
 #---------------------------------------------------------------
 # DEFAULTS
-VERSION = "0.6.0"
+VERSION = "0.6.1"
 ISOLATION_TITLE = "Virus:Isolation by El Daro"
 DEFAULT_GRAPHS_DIR = "../graphs"
 
@@ -800,11 +810,53 @@ class Virus:
 
 		return string
 
-	def get_steps_history(self, debug: bool = False):
+	def _get_position_as_string(self, position, suffix, colour_accent, colour_default):
+		if (position is None):
+			return colour_accent + "..." + colour_default + suffix
+		else:
+			return str(colour_accent + str(position) + colour_default + suffix)
+	
+	def _get_priority_path_as_string(self, priority_path,
+									suffix = " | ",
+									colour_accent: str = "",
+									colour_default: str = "",
+									width: int = 4,
+									ommit_first_node: bool = False):
+		if (priority_path is None):
+				return str(colour_accent + "..." +
+							  colour_default + suffix)
+		else:
+			if ommit_first_node:
+				priority_path_temp = self._convert_from_list_to_str(priority_path[1:])
+			else:
+				priority_path_temp = self._convert_from_list_to_str(priority_path)
+			
+			if priority_path_temp == "":
+				priority_path_temp = "END"
+
+			return colour_accent + "{0:<{w}}".format(
+				priority_path_temp,
+				w = width) + colour_default + suffix
+
+	def _get_severed_edge_as_string(self, severed_edge, suffix = " | ", colour_accent: str = "", colour_default: str = ""):
+		if (severed_edge is None):
+			return colour_accent + "..." + colour_default + suffix
+		else:
+			return str(colour_accent + self._convert_from_dict_to_str(severed_edge) +
+					   colour_default + suffix)
+
+	def get_steps_history(self, colored: bool = False, debug: bool = False):
 		if self.steps is None or len(self.steps) == 0:
 			return None
 
 		suffix					= " | "
+		colors = {
+			'default':			COLOURS['LIGHT_GRAY']	if colored else "",
+			'position':			COLOURS['LIGHT_CYAN']	if colored else "",
+			'priority_current': COLOURS['YELLOW']		if colored else "",
+			'priority_next':	COLOURS['BROWN']		if colored else "",
+			'severed':			COLOURS['LIGHT_PURPLE'] if colored else ""
+		}
 		steps_as_text			= []
 		priority_width_current	= self._get_priority_string_width(
 				width_min = 4, width_max = 53, debug = debug
@@ -812,46 +864,39 @@ class Virus:
 		counter = 0
 		for step in self.steps:
 			steps_as_text.append(f"{str(counter):>3}" + suffix)
+			
+			steps_as_text[counter] += self._get_position_as_string(step.position,
+												suffix = suffix,
+												colour_accent = colors['position'],
+												colour_default = colors['default'])
 
-			if (step.position is None):
-				steps_as_text[counter] += "..." + suffix
-			else:
-				steps_as_text[counter] += str(step.position) + suffix
+			steps_as_text[counter] += self._get_priority_path_as_string(step.priority_path_current,
+										suffix = suffix,
+										colour_accent = colors['priority_current'],
+										colour_default = colors['default'],
+										width = priority_width_current,
+										ommit_first_node = True if counter != 0 else False)
 
-			if (step.priority_path_current is None):
-				steps_as_text[counter] += "..." + suffix
-			else:
-				if counter == 0:
-					priority_path = self._convert_from_list_to_str(step.priority_path_current)
-				else:
-					priority_path = self._convert_from_list_to_str(step.priority_path_current[1:])
+			steps_as_text[counter] += self._get_severed_edge_as_string(
+										step.severed_edge,
+										suffix = suffix,
+										colour_accent = colors['severed'],
+										colour_default = colors['default']
+									  )
 
-				steps_as_text[counter] += "{0:<{w}}".format(
-					priority_path,
-					w = priority_width_current) + suffix
-
-			if (step.severed_edge is None):
-				steps_as_text[counter] += "..." + suffix
-			else:
-				steps_as_text[counter] += self._convert_from_dict_to_str(step.severed_edge) + suffix
-
-			if (step.priority_path_next is None):
-				steps_as_text[counter] += "..."
-			else:
-				priority_path = self._convert_from_list_to_str(step.priority_path_next)
-				if priority_path == "":
-					priority_path = "END"
-				
-				steps_as_text[counter] += "{0:<{w}}".format(
-					priority_path,
-					w = priority_width_current)
+			steps_as_text[counter] += self._get_priority_path_as_string(step.priority_path_next,
+										suffix = "",
+										colour_accent = colors['priority_next'],
+										colour_default = colors['default'],
+										width = 4,
+										ommit_first_node = False)
 
 			counter += 1
 		
 		return steps_as_text
 	
-	def display_steps_history(self, debug: bool = False):
-		steps_as_string = self.get_steps_history(debug)
+	def display_steps_history(self, colored: bool = False, debug: bool = False):
+		steps_as_string = self.get_steps_history(colored = colored, debug = debug)
 		if steps_as_string is None:
 			print("No steps history found")
 		else:
@@ -1024,13 +1069,17 @@ def test_agnostic(title: str = "NO TITLE",
 				  subtitle: str = "",
 				  input_text: str = "",
 				  output_canon: str = "",
-				  *, debug: bool = False, verbose: bool = False):
+				  *, colored: bool = False, debug: bool = False, verbose: bool = False):
 	# if debug or verbose:
 	print()
 	print('{:-^67}'.format(title))
 	if subtitle is not None and subtitle != "":
-		print("\n" + subtitle + " | ", end="")
-		print_debug(f"{Path(input_text).name}")
+		print("\n" + subtitle, end = "")
+		if Path(input_text).is_file():
+			print(" | ", end = "")
+			print_debug(f"{Path(input_text).name}")
+		else:
+			print()
 	if debug:
 		print_debug("\n [DEBUG] Input:")
 		print_debug(input_text)
@@ -1042,7 +1091,7 @@ def test_agnostic(title: str = "NO TITLE",
 
 	result = virus.solve(debug = debug, verbose = verbose)
 	print(f"\n{'Steps: ':>10}")
-	virus.display_steps_history(debug = debug)
+	virus.display_steps_history(colored = colored, debug = debug)
 	print(f"\n{'Output: ':>10}")
 	print(result)
 	if output_canon is not None and output_canon != "":
@@ -1055,7 +1104,7 @@ def test_agnostic(title: str = "NO TITLE",
 	print(f"\n{'-'*67}")
 
 @profiler
-def test_default(debug: bool = False, verbose: bool = False):
+def test_default(colored: bool = False, debug: bool = False, verbose: bool = False):
 	try:
 		input_text = """
 		a-b,
@@ -1071,6 +1120,7 @@ def test_default(debug: bool = False, verbose: bool = False):
 		test_agnostic(title    = "DEFAULT TEST",
 					subtitle   = "TESTS: Testing pre-defined input",
 					input_text = input_text,
+					colored    = colored, 
 					debug      = debug,
 					verbose    = verbose)
 		
@@ -1079,7 +1129,7 @@ def test_default(debug: bool = False, verbose: bool = False):
 			input_text, ex))
 
 @profiler
-def test_example(debug: bool = False, verbose: bool = False):
+def test_example(colored: bool = False, debug: bool = False, verbose: bool = False):
 	try:
 		example_graphs = {
 			'example_1': "a-b\na-c\nb-D\nc-D",
@@ -1099,6 +1149,7 @@ def test_example(debug: bool = False, verbose: bool = False):
 			test_agnostic(title    = "EXAMPLES TEST",
 						subtitle   = example_descriptions[example_title],
 						input_text = example_graph,
+						colored    = colored, 
 						debug      = debug,
 						verbose    = verbose)
 		
@@ -1107,12 +1158,13 @@ def test_example(debug: bool = False, verbose: bool = False):
 			ex))
 
 @profiler
-def test_from_text(input_text: str, output_canon: str = "", debug: bool = False, verbose: bool = False):
+def test_from_text(input_text: str, output_canon: str = "", colored: bool = False, debug: bool = False, verbose: bool = False):
 	try:
 		test_agnostic(title      = "TEST FROM TEXT",
 					subtitle     = "TESTS: Testing from text input",
 					input_text   = input_text,
 					output_canon = output_canon,
+					colored		 = colored,
 					debug        = debug,
 					verbose      = verbose)
 
@@ -1121,7 +1173,7 @@ def test_from_text(input_text: str, output_canon: str = "", debug: bool = False,
 			input_text, ex))
 
 @profiler
-def test_from_file_as_content(input_path: str, output_canon: str = "", debug: bool = False, verbose: bool = False):
+def test_from_file_as_content(input_path: str, output_canon: str = "", colored: bool = False, debug: bool = False, verbose: bool = False):
 	try:
 		parent_dir = Path(__file__).parent.resolve()
 		input_path_absolute = Path(parent_dir, input_path)
@@ -1138,6 +1190,7 @@ def test_from_file_as_content(input_path: str, output_canon: str = "", debug: bo
 					subtitle     = "TESTS: Testing from file",
 					input_text   = input_file,
 					output_canon = output_canon,
+					colored		 = colored,
 					debug        = debug,
 					verbose      = verbose)
 
@@ -1146,7 +1199,7 @@ def test_from_file_as_content(input_path: str, output_canon: str = "", debug: bo
 			Path(input_path).resolve(), ex))
 
 @profiler
-def test_from_file_as_path(input_path: str, output_canon: str = "", debug: bool = False, verbose: bool = False):
+def test_from_file_as_path(input_path: str, output_canon: str = "", colored: bool = False, debug: bool = False, verbose: bool = False):
 	try:
 		parent_dir = Path(__file__).parent.resolve()
 		input_path_absolute = Path(parent_dir, input_path)
@@ -1161,6 +1214,7 @@ def test_from_file_as_path(input_path: str, output_canon: str = "", debug: bool 
 					subtitle     = "TESTS: Testing from file",
 					input_text   = str(input_path_absolute),
 					output_canon = output_canon,
+					colored		 = colored,
 					debug        = debug,
 					verbose      = verbose)
 
@@ -1169,7 +1223,7 @@ def test_from_file_as_path(input_path: str, output_canon: str = "", debug: bool 
 			Path(input_path).resolve(), ex))
 		
 @profiler
-def test_from_dir(input_path: str, debug: bool = False, verbose: bool = False):
+def test_from_dir(input_path: str, colored: bool = False, debug: bool = False, verbose: bool = False):
 	try:
 		if debug or verbose:
 			print_info(msg = "\nInput dir path: ", msg_additional = "{0}\n".format(input_path))
@@ -1179,11 +1233,13 @@ def test_from_dir(input_path: str, debug: bool = False, verbose: bool = False):
 		if path_absolute.is_dir():
 			input_paths = get_input_paths(str(path_absolute))
 			output_edges = dict()
+			
 			if input_path == DEFAULT_TESTS_DIR:
 				path_outputs_absolute = Path(parent_dir, DEFAULT_TESTS_OUTPUTS_DIR).resolve()
 				output_paths = get_input_paths(str(path_outputs_absolute))
 				for output_path in output_paths:
 					output_edges[Path(output_path).stem] = str(File.read(output_path))
+			
 			for input_file_path in input_paths:
 				file_obj = Path(input_file_path).resolve()
 				output_canon = ""
@@ -1193,13 +1249,14 @@ def test_from_dir(input_path: str, debug: bool = False, verbose: bool = False):
 							output_canon = output_edges[stem]
 				test_from_file_as_path(input_file_path,
 						   			   output_canon = output_canon,
-						   			   debug = debug,
-						   			   verbose = verbose)
+									   colored		= colored,
+						   			   debug		= debug,
+						   			   verbose		= verbose)
 			return
 
 		elif Path(path_absolute).is_file() and Path(path_absolute).suffix == ".txt":
 			file_obj = Path(path_absolute).resolve()
-			test_from_file_as_path(file_obj, debug = debug, verbose = verbose)
+			test_from_file_as_path(file_obj, colored = colored, debug = debug, verbose = verbose)
 			return
 
 	except Exception as ex:
@@ -1207,7 +1264,7 @@ def test_from_dir(input_path: str, debug: bool = False, verbose: bool = False):
 			Path(input_path).resolve(), ex))
 
 @profiler
-def run_tests(args, *, debug: bool = False, verbose: bool = False):
+def run_tests(args, *, colored: bool = False, debug: bool = False, verbose: bool = False):
 	if args.option not in ARGS_DEF_OPTIONS:
 		if args.input_string is not None and args.input_string != "":
 			test_from_file_as_content(args.input_string)
@@ -1220,35 +1277,35 @@ def run_tests(args, *, debug: bool = False, verbose: bool = False):
 
 		match args.option:
 			case "DEFAULT":
-				test_default(debug = debug, verbose = verbose)
+				test_default(colored = colored, debug = debug, verbose = verbose)
 			case "EXAMPLE":
-				test_example(debug = debug, verbose = verbose)
+				test_example(colored = colored, debug = debug, verbose = verbose)
 			case "FROM_FILE":
 				if args.test_path is None or args.test_path == "":
 					path = DEFAULT_TESTS_FILE
 				else:
 					path = args.test_path
-				test_from_file_as_path(path, debug = debug, verbose = verbose)
+				test_from_file_as_path(path, colored = colored, debug = debug, verbose = verbose)
 			case "FROM_DIR":
 				if args.test_path is None or args.test_path == "":
 					path = DEFAULT_TESTS_DIR
 				else:
 					path = args.test_path
-				test_from_dir(path, debug = debug, verbose = verbose)
+				test_from_dir(path, colored = colored, debug = debug, verbose = verbose)
 
 	return None
 
 #------------------------------------------------------------------------------
 # Arguments processing
 @profiler
-def solve_from_text(input_as_text: str, debug: bool = False, verbose: bool = False):
+def solve_from_text(input_as_text: str, *, colored: bool = False, debug: bool = False, verbose: bool = False):
 	try:
 
 		if not input_as_text or len(input_as_text) == 0 or input_as_text == "":
 			print_debug("Warning: Empty input received", file = sys.stderr)
 			raise Exception("Warning: Empty input received")
 
-		if debug or verbose:
+		if debug:
 			print_info("Graph read directly from stdin:\n")
 			print(input_as_text)
 		
@@ -1260,9 +1317,9 @@ def solve_from_text(input_as_text: str, debug: bool = False, verbose: bool = Fal
 		solved = virus.solve(debug = debug, verbose = verbose)
 		time_elapsed = perf_counter() - time_start
 		if solved is not None and (debug or verbose):
-			print(f"\n{'Time elapsed: ':>20} {time_elapsed:>8.3f} s")
+			print(f"\n{'Time elapsed: ':>20} {time_elapsed:>8.5f} s")
 			print(f"\n{'Steps: ':>10}")
-			virus.display_steps_history(debug = debug)
+			virus.display_steps_history(colored = colored, debug = debug)
 			print(f"\n{'Output: ':>10}")
 			
 		print(solved)
@@ -1274,7 +1331,7 @@ def solve_from_text(input_as_text: str, debug: bool = False, verbose: bool = Fal
 	except Exception as ex:
 		raise ex
 
-def solve_from_input(input_path: Optional[str] = None, debug: bool = False, verbose: bool = False):
+def solve_from_input(input_path: Optional[str] = None, colored: bool = False, debug: bool = False, verbose: bool = False):
 	# From the cli:   ./isolation.py < input.txt
 	#			 cat input.txt | ./isolation.py
 	#			 ./isolataion.py (manual)
@@ -1309,16 +1366,16 @@ def solve_from_input(input_path: Optional[str] = None, debug: bool = False, verb
 				for input_file_path in input_paths:
 					file_obj = Path(input_file_path).resolve()
 					input_as_text = str(File.read(file_obj))
-					solve_from_text(input_as_text, debug, verbose)
+					solve_from_text(input_as_text, colored = colored, debug = debug, verbose = verbose)
 				return
 
 			elif Path(path_absolute).is_file() and Path(path_absolute).suffix == ".txt":
 				file_obj = Path(path_absolute).resolve()
 				input_as_text = str(File.read(file_obj))
-				solve_from_text(input_as_text, debug, verbose)
+				solve_from_text(input_as_text, colored = colored, debug = debug, verbose = verbose)
 				return
 			
-		solve_from_text(input_as_text, debug, verbose)
+		solve_from_text(input_as_text, colored = colored, debug = debug, verbose = verbose)
 
 	except Exception as ex:
 		raise ex
@@ -1329,14 +1386,14 @@ def invoke_virus_isolation(args):
 			# python ./isolation.py graph.txt
 			file_try = Path(args.input_string)
 			if file_try.is_dir() or file_try.is_file():
-				solve_from_input(input_path = args.input_string, debug = args.debug, verbose = args.verbose)
+				solve_from_input(input_path = args.input_string, colored = args.colored, debug = args.debug, verbose = args.verbose)
 			else:
 				print_error("Input is not a path to file or directory: {0}".format(args.input_string), file = sys.stderr)
 				raise Exception("Input is not a path to file or directory: {0}".format(args.input_string))
 			
 		else:
 			# python .\isolation.py
-			solve_from_input(debug = args.debug, verbose = args.verbose)
+			solve_from_input(colored = args.colored, debug = args.debug, verbose = args.verbose)
 	
 	except Exception as ex:
 		raise ex
@@ -1352,6 +1409,11 @@ def parse_arguments():
 					 help = "Debug output")
 	parser.add_argument('-v', "--verbose",   action = "store_true", default = False,
 					 help = "Verbose output")
+
+	# Preference
+	parser.add_argument('-C', "--colored", "--coloured",
+					 action = "store_true", default = False,
+					 help = "Colored output (only affects the steps history for now)")
 
 	# Tests and profiler
 	parser.add_argument('-P', "--profiler",  action = "store_true", default = False,
