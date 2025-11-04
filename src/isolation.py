@@ -1,7 +1,7 @@
 #pylint:disable=W0312
 
 #---------------------------------------------------------------------------#
-# Version: 0.4.2															#
+# Version: 0.4.3															#
 # Virus:Isolation															#
 # Through tough though thorough thought.									#
 #---------------------------------------------------------------------------#
@@ -51,6 +51,9 @@
 #	- Improved debug and verbose outputs
 #	- Added state representation for any given step
 #	- Added verbose output during the game loop to see the steps
+# v0.4.3
+#	- Further improved debug and verbose output
+#	- Added a new feature that displays all the steps in a readable way 
 #---------------------------------------------------------------------------#
 # TODO:
 #	- Corner cases
@@ -105,7 +108,7 @@ import argparse, heapq, random, re, sys, tracemalloc
 
 #---------------------------------------------------------------
 # DEFAULTS
-VERSION = "0.4.2"
+VERSION = "0.4.3"
 ISOLATION_TITLE = "Virus:Isolation by El Daro"
 DEFAULT_GRAPHS_DIR = "../graphs"
 DEFAULT_SEARCH_DIR = "../graphs/search"
@@ -598,6 +601,10 @@ class Virus:
 		else:
 			print("No input provided")
 			raise ValueError("No input provided")
+		
+		self.steps = list()
+		self.results_history = list()
+		self._result = BFSResult(set(), None, 0, {self.pos_initial: None})
 
 
 	# PROPERTIES
@@ -653,7 +660,7 @@ class Virus:
 		return self.get_state_readable()
 
 	def __str__(self):
-		return self.get_state_graphical()
+		return self.get_graph_graphical()
 
 	def get_state_readable(self, step: int = -1):
 		if self.steps is None or len(self.steps) == 0:
@@ -661,9 +668,6 @@ class Virus:
 
 		state_as_string = ""
 		suffix			= " | "
-		lengths			= {
-			'priority_path': 20
-		}
 		state_as_string += str(step) + suffix
 
 
@@ -683,11 +687,6 @@ class Virus:
 		else:
 			state_as_string += str(self.steps[step].severed_edge)
 
-		# if (self.steps[step].priority_path_next is None):
-		# 	state_as_string += "..." + suffix
-		# else:
-		# 	state_as_string += str(self.steps[step].priority_path_next) + suffix
-
 		# state_as_string += str(self.steps[step].position) + suffix
 		# state_as_string += str(self.steps[step].priority_path_current) + suffix
 		# state_as_string += str(self.steps[step].severed_edge) + suffix
@@ -703,7 +702,7 @@ class Virus:
 		else:
 			return ("Targets: N/D\nDistance: N/D\nParents: N/D")
 
-	def get_state_graphical(self):
+	def get_graph_graphical(self):
 		counter = 0
 		state = ""
 		visited = set(tuple())
@@ -721,7 +720,108 @@ class Virus:
 		state = state.strip(suffix)
 
 		return state
+
+	def get_priority_string_width(self, width_min = 4, width_max = 53, width_item = 2, *, debug: bool = False):
+		width = width_min
+		reduction = 1
+		for step in self.steps:
+			if step.priority_path_current is not None:
+				width = min(max(width,
+									(len(step.priority_path_current) * width_item - reduction)
+								),
+				 				width_max
+							)
+				if reduction == 1:
+					reduction = 3
+
+		if debug:
+			print(f"[DEBUG] [get_priority_string_width] Priority string width: {width}")
+
+		return width
+
+	def convert_from_list_to_str(self, lst: list):
+		string = ""
+		suffix = "-"
+		if len(lst) > 1:
+			for item in lst:
+				string += item + suffix
+		string = string.strip(suffix)
+
+		return string
+
+	def convert_from_dict_to_str(self, dictionary: Dict | dict | defaultdict):
+		string = ""
+		suffix = "-"
+		postfix = ", "
+		if len(dictionary) > 0:
+			for key, value in dictionary.items():
+				string += key + suffix + value
+				if len(dictionary) > 1:
+					string += postfix
+		string = string.strip(postfix)
+
+		return string
+
+	def get_steps_history(self, debug: bool = False):
+		if self.steps is None or len(self.steps) == 0:
+			return None
+
+		suffix					= " | "
+		steps_as_text			= []
+		priority_width_current	= self.get_priority_string_width(
+				width_min = 4, width_max = 53, debug = debug
+			)
+		counter = 0
+		for step in self.steps:
+			steps_as_text.append(str(counter) + suffix)
+
+			if (step.position is None):
+				steps_as_text[counter] += "..." + suffix
+			else:
+				steps_as_text[counter] += str(step.position) + suffix
+
+			if (step.priority_path_current is None):
+				steps_as_text[counter] += "..." + suffix
+			else:
+				if counter == 0:
+					priority_path = self.convert_from_list_to_str(step.priority_path_current)
+				else:
+					priority_path = self.convert_from_list_to_str(step.priority_path_current[1:])
+
+				steps_as_text[counter] += "{0:<{w}}".format(
+					priority_path,
+					w = priority_width_current) + suffix
+				# state_as_string += str(self.steps[step].priority_path_current) + suffix
+
+			if (step.severed_edge is None):
+				steps_as_text[counter] += "..." + suffix
+			else:
+				steps_as_text[counter] += self.convert_from_dict_to_str(step.severed_edge) + suffix
+
+			if (step.priority_path_next is None):
+				steps_as_text[counter] += "..."
+			else:
+				priority_path = self.convert_from_list_to_str(step.priority_path_next)
+				if priority_path == "":
+					priority_path = "END"
+				
+				steps_as_text[counter] += "{0:<{w}}".format(
+					priority_path,
+					w = priority_width_current)
+				
+				# steps_as_text[counter] += str(step.priority_path_next) + suffix
+
+			counter += 1
+		
+		return steps_as_text
 	
+	def display_steps_history(self, debug: bool = False):
+		steps_as_string = self.get_steps_history(debug)
+		if steps_as_string is None:
+			print("No steps history found")
+		else:
+			print("\n".join(steps_as_string))
+
 	# FUNCTIONAL
 	def _get_priority_target(self):
 		if self._result is None or self._result.targets_found is None:
@@ -758,7 +858,7 @@ class Virus:
 		else:
 			return priority_path[1]
 	
-	def _update_history(self, step_counter, *, verbose: bool = False):
+	def _update_history(self, step_counter, *, debug: bool = False, verbose: bool = False):
 		self.results_history.append(self._result)
 		self.steps.append(State(
 			position = self.pos_current,
@@ -772,10 +872,10 @@ class Virus:
 		if step_counter > 0 and len(self.steps) > 0:
 			self.steps[step_counter - 1].priority_path_next = self._priority_path
 
-		if verbose:
+		if debug:
 			print(self.get_state_readable(step_counter))
 
-	def game_loop(self, verbose: bool = False):
+	def game_loop(self, debug: bool = False, verbose: bool = False):
 		self.pos_current = self.pos_initial
 		self._graph._reset()
 		self._output = ""
@@ -815,7 +915,7 @@ class Virus:
 			self._severed_edge = { self._target: self._result.parents[self._target] }
 			self._graph.sever_gateway(self._target, self._result.parents[self._target])
 			
-			self._update_history(step_counter, verbose = verbose)
+			self._update_history(step_counter, debug = debug)
 			step_counter += 1
 
 		if step_counter > 0 and len(self.steps) > 0:
@@ -823,8 +923,8 @@ class Virus:
 		
 		return True
 	
-	def solve(self, verbose: bool = False):
-		if not self.game_loop(verbose):
+	def solve(self, debug: bool = False, verbose: bool = False):
+		if not self.game_loop(debug, verbose):
 			result = "Game over"
 		else:
 			result = ""
@@ -861,10 +961,11 @@ def get_input_paths(input_dir: str):
 def display_graph_info(virus: Virus, debug: bool = False, verbose: bool = False):
 	# print(virus)
 	# print(graph.get_state_readable())
-	if debug:
+	if debug or verbose:
 		print("\n Graph reconstructed from the inner state representation:\n")
 		# print(virus)
 		print(virus)
+	if debug:
 		print(f"{'Nodes: ':>16} {virus.nodes}")
 		print(f"{'Gateways: ':>16} {virus.gateways}")
 		print(f"{'Node edges: ':>16}\n{virus.node_edges}")
@@ -872,17 +973,18 @@ def display_graph_info(virus: Virus, debug: bool = False, verbose: bool = False)
 		# print(f"{'Output: ':>16}\n")
 		# if virus._output is not None and virus._output != "":
 		# 	print(virus._output)
-	# if debug:
-	# 	if verbose:
+	# if verbose:
+	# 	if debug:
 	# 		print()
 	# 	print("Alternative display methods:\n")
-	# 	virus
+		
 	print()
 
+@profiler
 def test_agnostic(title: str = "NO TITLE", subtitle: str = "", input_text: str = "", debug: bool = False, verbose: bool = False):
 	# if debug or verbose:
 	print()
-	print('{:-^40}'.format(title))
+	print('{:-^67}'.format(title))
 	if subtitle is not None and subtitle != "":
 		print("\n" + subtitle)
 	if debug:
@@ -892,9 +994,12 @@ def test_agnostic(title: str = "NO TITLE", subtitle: str = "", input_text: str =
 	virus = Virus(input_text)
 	display_graph_info(virus, debug, verbose)
 
-	result = virus.solve(verbose = verbose)
+	result = virus.solve(debug = debug, verbose = verbose)
+	print(f"\n{'Steps: ':>10}")
+	virus.display_steps_history(debug = debug)
 	print(f"\n{'Output: ':>10}")
 	print(result)
+	print(f"\n{'-'*67}")
 
 @profiler
 def test_default(debug: bool = False, verbose: bool = False):
@@ -1086,12 +1191,14 @@ def solve_from_text(input_as_text: str, debug: bool = False, verbose: bool = Fal
 			display_graph_info(virus, debug, verbose)
 
 		time_start = perf_counter()						# process_time()
-		solved = virus.solve(verbose = verbose)
+		solved = virus.solve(debug = debug, verbose = verbose)
 		time_elapsed = perf_counter() - time_start
 		if solved is not None and (debug or verbose):
 			# print("\n  Min cost: {0:,}".format(solved[1]))
 			print(f"\n{'Time elapsed: ':>20} {time_elapsed:>8.3f} s")
-			print(f"{'Output: ':>20}")
+			print(f"\n{'Steps: ':>10}")
+			virus.display_steps_history(debug = debug)
+			print(f"\n{'Output: ':>10}")
 			
 		print(solved)
 	
@@ -1176,21 +1283,21 @@ def parse_arguments():
 	parser.add_argument("input_string",		nargs = '?',
 					 help = "Path to the input file or folder")
 	
-	parser.add_argument('-d', "--debug",	 action = "store_true", default = True, 
+	parser.add_argument('-d', "--debug",	 action = "store_true", default = False, 
 					 help = "Debug output")
-	parser.add_argument('-v', "--verbose",   action = "store_true", default = True,
+	parser.add_argument('-v', "--verbose",   action = "store_true", default = False,
 					 help = "Verbose output")
 
 	# Tests and profiler
-	parser.add_argument('-P', "--profiler",  action = "store_true", default = True,
+	parser.add_argument('-P', "--profiler",  action = "store_true", default = False,
 					 help = "Enable profiler")
-	parser.add_argument('-T', "--tests",	 action = "store_true", default = True,
+	parser.add_argument('-T', "--tests",	 action = "store_true", default = False,
 					 help = "Invoke standard tests. You can specify what type of tests to run with the `--option` parameter")
 	parser.add_argument('-F', "--test_path", type = str,
 					 help = "Path to the test file or directory")
 	parser.add_argument("-O", "--option",
 					choices = ARGS_DEF_OPTIONS,
-					default = "EXAMPLE",
+					default = "DEFAULT",
 					help = "Defines what specific tests to run")
 	
 	return parser.parse_args()
