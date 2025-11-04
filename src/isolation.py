@@ -1,7 +1,7 @@
 #pylint:disable=W0312
 
 #---------------------------------------------------------------------------#
-# Version: 0.4.4															#
+# Version: 0.5.0															#
 # Virus:Isolation															#
 # Through tough though thorough thought.									#
 #---------------------------------------------------------------------------#
@@ -56,6 +56,10 @@
 #	- Added a new feature that displays all the steps in a readable way
 # v0.4.4
 #	- - Added `step` property to display current step
+# v0.5.0
+#	- Introduced complex examples in the \graphs\tests\ directory
+#	- Improved verbose output
+#	- Improved 'Game Over' state
 #---------------------------------------------------------------------------#
 # TODO:
 #	- Corner cases
@@ -110,14 +114,12 @@ import argparse, heapq, random, re, sys, tracemalloc
 
 #---------------------------------------------------------------
 # DEFAULTS
-VERSION = "0.4.4"
+VERSION = "0.5.0"
 ISOLATION_TITLE = "Virus:Isolation by El Daro"
 DEFAULT_GRAPHS_DIR = "../graphs"
-DEFAULT_SEARCH_DIR = "../graphs/search"
-DEFAULT_INVALID_DIR = "../graphs/invalid"
 
 DEFAULT_TESTS_DIR = DEFAULT_GRAPHS_DIR + "/tests"
-DEFAULT_TESTS_FILE = DEFAULT_TESTS_DIR + "/graph_simple.txt"
+DEFAULT_TESTS_FILE = DEFAULT_TESTS_DIR + "/graph_complex_1.txt"
 
 ARGS_DEF_OPTIONS = { "DEFAULT", "EXAMPLE", "FROM_FILE", "FROM_DIR" }
 
@@ -392,8 +394,7 @@ class Graph:
 				return False
 
 		return True
-	
-	# TODO: See if adding A-b edges to node_edges is actually necessary 
+	 
 	def add_edge(self, node_from, node_to):
 		'''
 		Adds an edge with specific rules:
@@ -415,6 +416,9 @@ class Graph:
 		Raises:
 			ValueError: If both nodes are gateways (uppercase letters)
 		'''
+		if node_from == node_to:
+			raise ValueError(f"Self-loop detected: {node_from}-{node_to}")
+		
 		if node_from.isupper():
 			if node_to.isupper():
 				raise ValueError("Gateway-to-gateway connections are not allowed.\nReceived: {0}-{1}".format(
@@ -679,8 +683,7 @@ class Virus:
 		state_as_string = ""
 		suffix			= " | "
 		if step >= 0:
-			state_as_string += str(step) + suffix
-
+			state_as_string += f"{str(step):>3}" + suffix
 
 		if (self.steps[step].position is None):
 			state_as_string += "..." + suffix
@@ -690,7 +693,7 @@ class Virus:
 		if (self.steps[step].priority_path_current is None):
 			state_as_string += "..." + suffix
 		else:
-			state_as_string += "{0:<25}".format(str(self.steps[step].priority_path_current)) + suffix
+			state_as_string += "{0:<30}".format(str(self.steps[step].priority_path_current)) + suffix
 			# state_as_string += str(self.steps[step].priority_path_current) + suffix
 
 		if (self.steps[step].severed_edge is None):
@@ -784,7 +787,7 @@ class Virus:
 			)
 		counter = 0
 		for step in self.steps:
-			steps_as_text.append(str(counter) + suffix)
+			steps_as_text.append(f"{str(counter):>3}" + suffix)
 
 			if (step.position is None):
 				steps_as_text[counter] += "..." + suffix
@@ -919,7 +922,9 @@ class Virus:
 				raise Exception(f"Could not execute the move for the following path: {self._priority_path}")
 
 			if self.pos_current in self._graph.gateways:
-				print("You died")
+				self._game_over = f"You died.\nVirus reached gateway: {self.pos_current}"
+				if debug:
+					print(self._game_over)
 				return False
 
 			# Step 5: Sever one of the gateway edges (based on priority)
@@ -936,7 +941,7 @@ class Virus:
 	
 	def solve(self, debug: bool = False, verbose: bool = False):
 		if not self.game_loop(debug, verbose):
-			result = "Game over"
+			result = self._game_over
 		else:
 			result = ""
 			for step in self.steps:
@@ -1308,7 +1313,7 @@ def parse_arguments():
 					 help = "Path to the test file or directory")
 	parser.add_argument("-O", "--option",
 					choices = ARGS_DEF_OPTIONS,
-					default = "DEFAULT",
+					default = "FROM_FILE",
 					help = "Defines what specific tests to run")
 	
 	return parser.parse_args()
