@@ -1,7 +1,7 @@
 #pylint:disable=W0312
 
 #---------------------------------------------------------------------------#
-# Version: 0.3.0															#
+# Version: 0.4.0															#
 # Virus:Isolation															#
 # Through tough though thorough thought.									#
 #---------------------------------------------------------------------------#
@@ -20,7 +20,7 @@
 #		-T, --tests				| Invoke standard tests from a pre-defined
 # 								|	input folder (comes with the repo)
 #		-O, --option OPTION		| Defines what specific tests to run
-#			OPTION				| DEFAULT, EXAMPLE, FROM_FILE
+#			OPTION				| DEFAULT, EXAMPLE, FROM_FILE, FROM_DIR
 #---------------------------------------------------------------------------#
 #---------------------------------CHANGELOG---------------------------------#
 #---------------------------------------------------------------------------#
@@ -33,9 +33,21 @@
 #	- Fixed and improved agnostic BFS method
 #	- Added the main game cycle, including:
 #	  BFS search, target prioritization, edge severing and moves
+# v0.4.0
+#	- Fixed game loop failing to find the correct severance sequence
+#	  when more than one node was connected to a single gateway
+#	- Fixed tests with FROM_FILE and FROM_DIR options
+#	- Added test cases in the `/graphs/tests` directory
+#	- Added a new option to the command line arguments (`test_path`)
+#	  to specify the path to file or directory for when the `--tests`
+# 	  option is used.
+#	- Added processing of a positional argument:
+# 	  graph as text or path to file or directory
+#	- Added default representation for the `__str__` method based on the
+#	  current state of the graph
 #---------------------------------------------------------------------------#
 # TODO:
-#	- Everything
+#	- Corner cases
 #---------------------------------------------------------------------------#
 
 #---------------------------------------------------------------------------#
@@ -87,13 +99,16 @@ import argparse, heapq, random, re, sys, tracemalloc
 
 #---------------------------------------------------------------
 # DEFAULTS
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 ISOLATION_TITLE = "Virus:Isolation by El Daro"
-DEFAULT_LABYRINTHS_DIR = "../graphs"
+DEFAULT_GRAPHS_DIR = "../graphs"
 DEFAULT_SEARCH_DIR = "../graphs/search"
 DEFAULT_INVALID_DIR = "../graphs/invalid"
 
-ARGS_DEF_OPTIONS = { "DEFAULT", "EXAMPLE", "FROM_FILE" }
+DEFAULT_TESTS_DIR = DEFAULT_GRAPHS_DIR + "/tests"
+DEFAULT_TESTS_FILE = DEFAULT_TESTS_DIR + "/graph_simple.txt"
+
+ARGS_DEF_OPTIONS = { "DEFAULT", "EXAMPLE", "FROM_FILE", "FROM_DIR" }
 
 # Global
 
@@ -420,7 +435,7 @@ class Graph:
 	def sever_gateway(self, gateway, node):
 		self.gateway_edges[gateway].discard(node)
 		self.node_edges[node].discard(gateway)
-		self.gateways.discard(gateway)
+		# self.gateways.discard(gateway)
 
 	def _build_graph(self):
 		if self.graph_as_text is None or self.graph_as_text == "":
@@ -644,7 +659,18 @@ class Virus:
 			return ("Targets: N/D\nDistance: N/D\nParents: N/D")
 
 	def get_state_graphical(self):
-		return "Not implemented yet"
+		state = ""
+		visited = set(tuple())
+		for node, neighbors in self._graph.node_edges.items():
+			for neighbor in neighbors:
+				if (node, neighbor) not in visited:
+					state += f"{node}-{neighbor}\n"
+					visited.add((node, neighbor))
+					visited.add((neighbor, node))
+		
+		state.strip()
+
+		return state
 	
 	# FUNCTIONAL
 	def _get_priority_target(self):
@@ -765,12 +791,26 @@ class Virus:
 profiler = Profiler()
 
 #---------------------------------------------------------------------------
+# Utils
+def get_input_paths(input_dir: str):
+	input_paths = []
+	parent_dir = Path(__file__).parent.resolve()
+	input_dir_absolute = Path(parent_dir, input_dir)
+	if not input_dir_absolute.exists() or not input_dir_absolute.is_dir():
+		raise FileNotFoundError("Input directory not found: {0}".format(input_dir_absolute))
+	for file_path in input_dir_absolute.iterdir():
+		if file_path.is_file() and file_path.suffix == ".txt":
+			input_paths.append(str(file_path.resolve()))
+	return input_paths
+
+#---------------------------------------------------------------------------
 # Tests
 def display_graph_info(virus: Virus, debug: bool = False, verbose: bool = False):
 	print("\nGraph reconstructed from the inner state representation:\n")
 	# print(virus)
 	# print(graph.get_state_readable())
 	if verbose:
+		# print(virus)
 		print(virus)
 		print(f"{'Nodes: ':>16} {virus.nodes}")
 		print(f"{'Gateways: ':>16} {virus.gateways}")
@@ -848,9 +888,12 @@ def test_from_text(input_text: str, debug: bool = False, verbose: bool = False):
 @profiler
 def test_from_file_as_content(input_path: str, debug: bool = False, verbose: bool = False):
 	try:
+		parent_dir = Path(__file__).parent.resolve()
+		input_path_absolute = Path(parent_dir, input_path)
+		
 		if debug or verbose:
-			print("\nInput file path: {0}\n".format(Path(input_path).resolve()))
-			input_file = str(File.read(Path(input_path)))
+			print("\nInput file path: {0}\n".format(input_path_absolute))
+			input_file = str(File.read(input_path_absolute))
 			print("Graph read directly from file:\n")
 			print(input_file)
 		
@@ -867,17 +910,46 @@ def test_from_file_as_content(input_path: str, debug: bool = False, verbose: boo
 @profiler
 def test_from_file_as_path(input_path: str, debug: bool = False, verbose: bool = False):
 	try:
+		parent_dir = Path(__file__).parent.resolve()
+		input_path_absolute = Path(parent_dir, input_path)
+
 		if debug or verbose:
-			print("\nInput file path: {0}\n".format(Path(input_path).resolve()))
-			input_file = str(File.read(Path(input_path)))
+			print("\nInput file path: {0}\n".format(input_path_absolute))
+			input_file = str(File.read(input_path_absolute))
 			print("Graph read directly from file:\n")
 			print(input_file)
 		
 		test_agnostic(title    = "TEST FROM FILE",
 					subtitle   = "TESTS: Testing from file",
-					input_text = input_path,
+					input_text = str(input_path_absolute),
 					debug      = debug,
 					verbose    = verbose)
+
+	except Exception as ex:
+		print("Exception occurred while testing graph from file.\n\n  Path: {0}\n  Exception: {1}\n".format(
+			Path(input_path).resolve(), ex))
+		
+@profiler
+def test_from_dir(input_path: str, debug: bool = False, verbose: bool = False):
+	try:
+		if debug or verbose:
+			print("\nInput dir path: {0}\n".format(Path(input_path).resolve()))
+
+		parent_dir = Path(__file__).parent.resolve()
+		path_absolute = Path(parent_dir, input_path).resolve()
+		if path_absolute.is_dir():
+			input_paths = get_input_paths(str(path_absolute))
+			for input_file_path in input_paths:
+				file_obj = Path(input_file_path).resolve()
+				input_as_text = str(File.read(file_obj))
+				test_from_file_as_path(input_file_path, debug = debug, verbose = verbose)
+			return
+
+		elif Path(path_absolute).is_file() and Path(path_absolute).suffix == ".txt":
+			file_obj = Path(path_absolute).resolve()
+			input_as_text = str(File.read(file_obj))
+			test_from_file_as_path(file_obj, debug = debug, verbose = verbose)
+			return
 
 	except Exception as ex:
 		print("Exception occurred while testing graph from file.\n\n  Path: {0}\n  Exception: {1}\n".format(
@@ -901,16 +973,125 @@ def run_tests(args, *, debug: bool = False, verbose: bool = False):
 			case "EXAMPLE":
 				test_example(debug = debug, verbose = verbose)
 			case "FROM_FILE":
-				if args.input_string is None or args.input_string == "":
-					print("[ERROR] TESTS: No input path provided")
-					raise ValueError("No input path provided")
-				test_from_file_as_path(args.input_string, debug = debug, verbose = verbose)
+				if args.test_path is None or args.test_path == "":
+					path = DEFAULT_TESTS_FILE
+					# print("[ERROR] TESTS: No input path provided")
+					# raise ValueError("No input path provided")
+				else:
+					path = args.test_path
+				test_from_file_as_path(path, debug = debug, verbose = verbose)
+			case "FROM_DIR":
+				if args.test_path is None or args.test_path == "":
+					path = DEFAULT_TESTS_DIR
+					# print("[ERROR] TESTS: No input path provided")
+					# raise ValueError("No input path provided")
+				else:
+					path = args.test_path
+				test_from_dir(path, debug = debug, verbose = verbose)
 
 	return None
 
 #------------------------------------------------------------------------------
 # Arguments processing
+@profiler
+def solve_from_text(input_as_text: str, debug: bool = False, verbose: bool = False):
+	try:
 
+		if not input_as_text or len(input_as_text) == 0 or input_as_text == "":
+			print("Warning: Empty input received", file = sys.stderr)
+			raise Exception("Warning: Empty input received")
+
+		if debug or verbose:
+			print("Graph read directly from stdin:\n")
+			print(input_as_text)
+		
+		virus = Virus(input_as_text)
+		if debug or verbose:
+			display_graph_info(virus, debug, verbose)
+
+		time_start = perf_counter()						# process_time()
+		solved = virus.solve()
+		time_elapsed = perf_counter() - time_start
+		if solved is not None and (debug or verbose):
+			# print("\n  Min cost: {0:,}".format(solved[1]))
+			print(f"\n{'Time elapsed: ':>20} {time_elapsed:>8.3f} s")
+			print(f"{'Output: ':>20}")
+			
+		print(solved)
+	
+	except EOFError as ex:
+		print("\nEOF received (empty input)", file = sys.stderr)
+		return ""
+
+	except Exception as ex:
+		raise ex
+
+def solve_from_input(input_path: Optional[str] = None, debug: bool = False, verbose: bool = False):
+	# From the cli:   ./isolation.py < input.txt
+	#			 cat input.txt | ./isolation.py
+	#			 ./isolataion.py (manual)
+	try:
+		if not input_path:
+			if os_name == 'nt':
+				help_message = "To exit send Ctrl+Z then Enter"
+			elif os_name == 'posix':
+				help_message = "To exit send Ctrl+D then Enter"
+			else:
+				help_message = "To exit enter a new line and type END"
+			
+			if verbose and stdin.isatty():
+				print("Paste or type the set of graph edges below (one per line).")
+				print(help_message)
+				print()
+		
+			try:
+				input_as_text = stdin.read().strip().split("\n")
+			except EOFError:				# Ctrl+D or Ctrl+Z
+				if debug:
+					print("\nInput read")
+			except KeyboardInterrupt:		# Ctrl+C
+				print("\nCancelled")
+				exit(0)
+
+		else:
+			parent_dir = Path(__file__).parent.resolve()
+			path_absolute = Path(parent_dir, input_path).resolve()
+			if path_absolute.is_dir():
+				input_paths = get_input_paths(str(path_absolute))
+				for input_file_path in input_paths:
+					file_obj = Path(input_file_path).resolve()
+					input_as_text = str(File.read(file_obj))
+					solve_from_text(input_as_text, debug, verbose)
+				return
+
+			elif Path(path_absolute).is_file() and Path(path_absolute).suffix == ".txt":
+				file_obj = Path(path_absolute).resolve()
+				input_as_text = str(File.read(file_obj))
+				solve_from_text(input_as_text, debug, verbose)
+				return
+			
+		solve_from_text(input_as_text, debug, verbose)
+
+	except Exception as ex:
+		raise ex
+
+def invoke_virus_isolation(args):
+	try:
+		if args.input_string is not None and args.input_string != "":
+			# python ./isolation.py graph.txt
+			file_try = Path(args.input_string)
+			if file_try.is_dir() or file_try.is_file():
+				solve_from_input(input_path = args.input_string, debug = args.debug, verbose = args.verbose)
+			else:
+				print("Input is not a path to file or directory: {0}".format(args.input_string), file = sys.stderr)
+				raise Exception("Input is not a path to file or directory: {0}".format(args.input_string))
+			
+		else:
+			# python .\isolation.py
+			solve_from_input(debug = args.debug, verbose = args.verbose)
+	
+	except Exception as ex:
+		raise ex
 
 #------------------------------------------------------------------------------
 # Arguments parsing
@@ -929,9 +1110,11 @@ def parse_arguments():
 					 help = "Enable profiler")
 	parser.add_argument('-T', "--tests",	 action = "store_true", default = True,
 					 help = "Invoke standard tests. You can specify what type of tests to run with the `--option` parameter")
+	parser.add_argument('-F', "--test_path", type = str,
+					 help = "Path to the test file or directory")
 	parser.add_argument("-O", "--option",
 					choices = ARGS_DEF_OPTIONS,
-					default = "DEFAULT",
+					default = "FROM_DIR",
 					help = "Defines what specific tests to run")
 	
 	return parser.parse_args()
@@ -957,6 +1140,10 @@ def main():
 		run_tests(args = args,
 				 debug = True,
 			   verbose = True)
+		
+	else:
+		# The main solver
+		invoke_virus_isolation(args)
 	
 	if args.profiler:
 		profiler.summary()
