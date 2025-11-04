@@ -1,7 +1,7 @@
 #pylint:disable=W0312
 
 #---------------------------------------------------------------------------#
-# Version: 0.4.3															#
+# Version: 0.4.4															#
 # Virus:Isolation															#
 # Through tough though thorough thought.									#
 #---------------------------------------------------------------------------#
@@ -53,7 +53,9 @@
 #	- Added verbose output during the game loop to see the steps
 # v0.4.3
 #	- Further improved debug and verbose output
-#	- Added a new feature that displays all the steps in a readable way 
+#	- Added a new feature that displays all the steps in a readable way
+# v0.4.4
+#	- - Added `step` property to display current step
 #---------------------------------------------------------------------------#
 # TODO:
 #	- Corner cases
@@ -108,7 +110,7 @@ import argparse, heapq, random, re, sys, tracemalloc
 
 #---------------------------------------------------------------
 # DEFAULTS
-VERSION = "0.4.3"
+VERSION = "0.4.4"
 ISOLATION_TITLE = "Virus:Isolation by El Daro"
 DEFAULT_GRAPHS_DIR = "../graphs"
 DEFAULT_SEARCH_DIR = "../graphs/search"
@@ -655,6 +657,14 @@ class Virus:
 			print("No results were found", file = sys.stderr)
 			return None
 		
+	@property
+	def step(self):
+		if self.steps is None or len(self.steps) == 0:
+			print("No solution steps were found", file = sys.stderr)
+			return None
+		else:
+			return self.get_state_readable()
+
 	# REPRESENTATION
 	def __repr__(self):
 		return self.get_state_readable()
@@ -668,7 +678,8 @@ class Virus:
 
 		state_as_string = ""
 		suffix			= " | "
-		state_as_string += str(step) + suffix
+		if step >= 0:
+			state_as_string += str(step) + suffix
 
 
 		if (self.steps[step].position is None):
@@ -721,7 +732,7 @@ class Virus:
 
 		return state
 
-	def get_priority_string_width(self, width_min = 4, width_max = 53, width_item = 2, *, debug: bool = False):
+	def _get_priority_string_width(self, width_min = 4, width_max = 53, width_item = 2, *, debug: bool = False):
 		width = width_min
 		reduction = 1
 		for step in self.steps:
@@ -739,7 +750,7 @@ class Virus:
 
 		return width
 
-	def convert_from_list_to_str(self, lst: list):
+	def _convert_from_list_to_str(self, lst: list):
 		string = ""
 		suffix = "-"
 		if len(lst) > 1:
@@ -749,7 +760,7 @@ class Virus:
 
 		return string
 
-	def convert_from_dict_to_str(self, dictionary: Dict | dict | defaultdict):
+	def _convert_from_dict_to_str(self, dictionary: Dict | dict | defaultdict):
 		string = ""
 		suffix = "-"
 		postfix = ", "
@@ -768,7 +779,7 @@ class Virus:
 
 		suffix					= " | "
 		steps_as_text			= []
-		priority_width_current	= self.get_priority_string_width(
+		priority_width_current	= self._get_priority_string_width(
 				width_min = 4, width_max = 53, debug = debug
 			)
 		counter = 0
@@ -784,9 +795,9 @@ class Virus:
 				steps_as_text[counter] += "..." + suffix
 			else:
 				if counter == 0:
-					priority_path = self.convert_from_list_to_str(step.priority_path_current)
+					priority_path = self._convert_from_list_to_str(step.priority_path_current)
 				else:
-					priority_path = self.convert_from_list_to_str(step.priority_path_current[1:])
+					priority_path = self._convert_from_list_to_str(step.priority_path_current[1:])
 
 				steps_as_text[counter] += "{0:<{w}}".format(
 					priority_path,
@@ -796,12 +807,12 @@ class Virus:
 			if (step.severed_edge is None):
 				steps_as_text[counter] += "..." + suffix
 			else:
-				steps_as_text[counter] += self.convert_from_dict_to_str(step.severed_edge) + suffix
+				steps_as_text[counter] += self._convert_from_dict_to_str(step.severed_edge) + suffix
 
 			if (step.priority_path_next is None):
 				steps_as_text[counter] += "..."
 			else:
-				priority_path = self.convert_from_list_to_str(step.priority_path_next)
+				priority_path = self._convert_from_list_to_str(step.priority_path_next)
 				if priority_path == "":
 					priority_path = "END"
 				
