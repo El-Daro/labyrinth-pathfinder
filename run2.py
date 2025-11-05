@@ -1,7 +1,7 @@
 #pylint:disable=W0312
 
 #---------------------------------------------------------------------------#
-# Version: 0.7.2                                                            #
+# Version: 0.7.4                                                            #
 # Virus:Isolation                                                           #
 # Through tough though thorough thought.                                    #
 #---------------------------------------------------------------------------#
@@ -138,7 +138,7 @@ import argparse, re, sys, tracemalloc
 
 #---------------------------------------------------------------
 # DEFAULTS
-VERSION = "0.7.2"
+VERSION = "0.7.4"
 ISOLATION_TITLE = "Virus:Isolation by El Daro"
 DEFAULT_GRAPHS_DIR = "../graphs"
 
@@ -1339,7 +1339,7 @@ def solve_from_text(input_as_text: str, *, colored: bool = False, debug: bool = 
 	
 	except EOFError as ex:
 		print_error("\nEOF received (empty input)", file = sys.stderr)
-		return ""
+		raise Exception(f"\nEOF received (empty input): {ex}")
 
 	except Exception as ex:
 		raise ex
@@ -1396,14 +1396,14 @@ def solve_from_input(input_path: Optional[str] = None, colored: bool = False, de
 def invoke_virus_isolation(args):
 	try:
 		if args.input_string is not None and args.input_string != "":
-			raise UnboundLocalError("[INDIRECT] Input is not a path to file or directory: {0}".format(args.input_string))
+			# raise UnboundLocalError("[INDIRECT] Input is not a path to file or directory: {0}".format(args.input_string))
 			# python ./run2.py graph.txt
-			file_try = Path(args.input_string)
-			if file_try.is_dir() or file_try.is_file():
-				solve_from_input(input_path = args.input_string, colored = args.colored, debug = args.debug, verbose = args.verbose)
-			else:
-				print_error("Input is not a path to file or directory: {0}".format(args.input_string), file = sys.stderr)
-				raise Exception("Input is not a path to file or directory: {0}".format(args.input_string))
+			# file_try = Path(args.input_string)
+			# if file_try.is_dir() or file_try.is_file():
+			solve_from_input(input_path = args.input_string, colored = args.colored, debug = args.debug, verbose = args.verbose)
+			# else:
+			# 	print_error("Input is not a path to file or directory: {0}".format(args.input_string), file = sys.stderr)
+			# 	raise Exception("Input is not a path to file or directory: {0}".format(args.input_string))
 			
 		else:
 			if args.input_string is not None:
