@@ -1,7 +1,7 @@
 #pylint:disable=W0312
 
 #---------------------------------------------------------------------------#
-# Version: 0.7.0                                                            #
+# Version: 0.7.1                                                            #
 # Virus:Isolation                                                           #
 # Through tough though thorough thought.                                    #
 #---------------------------------------------------------------------------#
@@ -85,6 +85,8 @@
 #  - Added usage examples to the help screen                                #
 # v0.7.0                                                                    #
 #  - Bumped the minor version to clarify future tests                       #
+# v0.7.1
+#  - Small fixes
 #---------------------------------------------------------------------------#
 
 #---------------------------------------------------------------------------#
@@ -136,7 +138,7 @@ import argparse, re, sys, tracemalloc
 
 #---------------------------------------------------------------
 # DEFAULTS
-VERSION = "0.7.0"
+VERSION = "0.7.1"
 ISOLATION_TITLE = "Virus:Isolation by El Daro"
 DEFAULT_GRAPHS_DIR = "../graphs"
 
@@ -1026,6 +1028,8 @@ class Virus:
 				result += f"{gateway}-{node}\n"
 
 		self._output = result.strip()
+		if self._output == "":
+			self.output = None
 
 		return self._output
 
@@ -1401,6 +1405,7 @@ def invoke_virus_isolation(args):
 				raise Exception("Input is not a path to file or directory: {0}".format(args.input_string))
 			
 		else:
+			raise UnboundLocalError("Input is not a path to file or directory: {0}".format(args.input_string))
 			# python .\isolation.py
 			solve_from_input(colored = args.colored, debug = args.debug, verbose = args.verbose)
 	
