@@ -1,5 +1,9 @@
 # Labyrinth Pathfinder
 
+> [!NOTE]
+> This is the readme for the first task.
+> See teadme for the second one [here](README_ISOLATION.md)
+
 ## Introduction
 
 This is a Python command line tool that solves a certain type of labyrinths.
@@ -11,10 +15,6 @@ Given initial state, find the minimum cost of reaching the goal state, where goa
 - hallway: (0**hallway_length)
 - rooms: room(index) = decoded(index + 1)
    - i.e. each room should be full and only contain objects of its type. 
-
-> [!NOTE]
-> This is the readme for the first task.
-> See teadme for the second one [here](README_ISOLATION.md)
 
 #### Weights per one node move
 ```
