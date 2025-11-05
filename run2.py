@@ -1,7 +1,7 @@
 #pylint:disable=W0312
 
 #---------------------------------------------------------------------------#
-# Version: 0.8.2                                                            #
+# Version: 0.9.0                                                            #
 # Virus:Isolation                                                           #
 # Through tough though thorough thought.                                    #
 #---------------------------------------------------------------------------#
@@ -96,6 +96,8 @@
 #  - Disabled fast game loop                                                #
 # v0.8.2                                                                    #
 #  - Added a bit more robustness                                            #
+# v0.9.0                                                                    #
+#  - Cleaned up the code                                                    #
 #---------------------------------------------------------------------------#
 
 #---------------------------------------------------------------------------#
@@ -147,17 +149,17 @@ import argparse, re, sys, tracemalloc
 
 #---------------------------------------------------------------
 # DEFAULTS
-VERSION = "0.8.2"
+VERSION = "0.9.0"
 ISOLATION_TITLE = "Virus:Isolation by El Daro"
 DEFAULT_GRAPHS_DIR = "graphs"
 
 DEFAULT_TESTS_DIR = DEFAULT_GRAPHS_DIR + "/tests"
 DEFAULT_TESTS_OUTPUTS_DIR = DEFAULT_GRAPHS_DIR + "/outputs"
 DEFAULT_TESTS_FILE = DEFAULT_TESTS_DIR + "/graph_complex_1.txt"
-DEFAULT_TESTS_DIR_SIM = DEFAULT_GRAPHS_DIR + "/thorough"
-DEFAULT_TESTS_FILE_SIM = DEFAULT_TESTS_DIR_SIM + "/graph_thorough_1.txt"
+DEFAULT_TESTS_DIR_THOROUGH = DEFAULT_GRAPHS_DIR + "/thorough"
+DEFAULT_TESTS_FILE_THOROUGH = DEFAULT_TESTS_DIR_THOROUGH + "/graph_thorough_1.txt"
 
-ARGS_DEF_OPTIONS = { "DEFAULT", "EXAMPLE", "FROM_FILE", "FROM_DIR", "SIMULATION" }
+ARGS_DEF_OPTIONS = { "DEFAULT", "EXAMPLE", "FROM_FILE", "FROM_DIR" }
 
 #-------------------------------
 # Global
@@ -984,7 +986,6 @@ class Virus:
 				priority_path_next = None
 			))
 			# Retrofit the new priority path into the previous record
-			# (Handles the special case of the 0th step)
 			if step_counter > 0 and len(self.steps) > 0:
 				self.steps[step_counter - 1].priority_path_next = self._priority_path
 
@@ -1018,8 +1019,6 @@ class Virus:
 			else:
 				self._priority_path = self._get_priority_path(self._result, self.pos_current, self._target)
 
-			# self._priority_path = self._get_priority_path(self._result, self.pos_current, self._target)
-
 			# Step 4: Move the virus
 			# NOTE: Skipping the first move because of the specific starting condition
 			if step_counter != 0:
@@ -1040,7 +1039,6 @@ class Virus:
 			# Step 5: Sever one of the gateway edges (based on priority)
 			if self._target is None:
 				self._severed_edge = { "N/D": "N/D" }
-				# self._graph.sever_gateway(self._target, self._result.parents[self._target])
 			else:
 				self._severed_edge = { self._target: self._result.parents[self._target] }
 				self._graph.sever_gateway(self._target, self._result.parents[self._target])
@@ -1071,8 +1069,7 @@ class Virus:
 					priority_path = [pos_current]
 				else:
 					priority_path = self._get_priority_path(result, pos_current, target)
-				# priority_path = self._get_priority_path(result, pos_current, target)
-				# if step_counter != 0:
+				
 				if priority_path is None or len(priority_path) < 2:
 					continue
 					# raise Exception(f"Could not execute the move for the following path: {priority_path}")
@@ -1134,9 +1131,6 @@ class Virus:
 		if pos_current is None or pos_current == "":
 			pos_current = self.pos_initial
 		self._graph._reset()
-		# result = graph.bfs(pos_current)
-		# target = self._get_priority_target(result)
-		# priority_path = self._get_priority_path(result, pos_current, target)
 		win_sequence = self._get_win_sequence(graph, pos_current)
 		
 		if debug:
@@ -1231,45 +1225,6 @@ def display_graph_info(virus: Virus, debug: bool = False, verbose: bool = False)
 
 @profiler
 def test_agnostic(title: str = "NO TITLE",
-				  subtitle: str = "",
-				  input_text: str = "",
-				  output_canon: str = "",
-				  *, colored: bool = False, debug: bool = False, verbose: bool = False):
-	# if debug or verbose:
-	print()
-	print('{:-^67}'.format(title))
-	if subtitle is not None and subtitle != "":
-		print("\n" + subtitle, end = "")
-		if Path(input_text).is_file():
-			print(" | ", end = "")
-			print_debug(f"{Path(input_text).name}")
-		else:
-			print()
-	if debug:
-		print_debug("\n [DEBUG] Input:")
-		print_debug(input_text)
-	if verbose:
-		print("")
-	
-	virus = Virus(input_text)
-	display_graph_info(virus, debug, verbose)
-
-	result = virus.solve(debug = debug, verbose = verbose)
-	print(f"\n{'Steps: ':>10}")
-	virus.display_steps_history(colored = colored, debug = debug)
-	print(f"\n{'Output: ':>10}")
-	print(result)
-	if output_canon is not None and output_canon != "":
-		if result == output_canon:
-			print(COLOURS["LIGHT_GREEN"] + "TEST PASSED" + COLOURS["LIGHT_GRAY"])
-		else:
-			print(COLOURS["LIGHT_RED"] + "TEST FAILED" + COLOURS["LIGHT_GRAY"])
-			print(f"Correct output should be:")
-			print_info(f"{output_canon}")
-	print(f"\n{'-'*67}")
-
-@profiler
-def test_sim(title: str = "NO TITLE (SIM)",
 				  subtitle: str = "",
 				  input_text: str = "",
 				  output_canon: str = "",
@@ -1403,7 +1358,7 @@ def test_from_file_as_content(input_path: str, output_canon: str = "", colored: 
 			Path(input_path).resolve(), ex))
 
 @profiler
-def test_from_file_as_path(input_path: str, output_canon: str = "", simulation: bool = False, colored: bool = False, debug: bool = False, verbose: bool = False):
+def test_from_file_as_path(input_path: str, output_canon: str = "", colored: bool = False, debug: bool = False, verbose: bool = False):
 	try:
 		parent_dir = Path(__file__).parent.resolve()
 		input_path_absolute = Path(parent_dir, input_path)
@@ -1414,22 +1369,13 @@ def test_from_file_as_path(input_path: str, output_canon: str = "", simulation: 
 			print("Graph read directly from file:\n")
 			print(input_file)
 		
-		if not simulation:
-			test_agnostic(title  = "TEST FROM FILE",
-					subtitle     = "TESTS: Testing from file",
-					input_text   = str(input_path_absolute),
-					output_canon = output_canon,
-					colored		 = colored,
-					debug        = debug,
-					verbose      = verbose)
-		else:
-			test_sim(title       = "TEST FROM FILE",
-					subtitle     = "TESTS: Testing from file (simulation)",
-					input_text   = str(input_path_absolute),
-					output_canon = output_canon,
-					colored		 = colored,
-					debug        = debug,
-					verbose      = verbose)
+		test_agnostic(title  = "TEST FROM FILE",
+				subtitle     = "TESTS: Testing from file",
+				input_text   = str(input_path_absolute),
+				output_canon = output_canon,
+				colored		 = colored,
+				debug        = debug,
+				verbose      = verbose)
 
 	except Exception as ex:
 		print_error("Exception occurred while testing graph from file.\n\n  Path: {0}\n  Exception: {1}\n".format(
@@ -1505,12 +1451,6 @@ def run_tests(args, *, colored: bool = False, debug: bool = False, verbose: bool
 				else:
 					path = args.test_path
 				test_from_dir(path, colored = colored, debug = debug, verbose = verbose)
-			case "SIMULATION":
-				if args.test_path is None or args.test_path == "":
-					path = DEFAULT_TESTS_FILE_SIM
-				else:
-					path = args.test_path
-				test_from_file_as_path(path, simulation = True, colored = colored, debug = debug, verbose = verbose)
 
 	return None
 
