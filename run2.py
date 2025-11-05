@@ -1,7 +1,7 @@
 #pylint:disable=W0312
 
 #---------------------------------------------------------------------------#
-# Version: 0.7.1                                                            #
+# Version: 0.7.2                                                            #
 # Virus:Isolation                                                           #
 # Through tough though thorough thought.                                    #
 #---------------------------------------------------------------------------#
@@ -138,7 +138,7 @@ import argparse, re, sys, tracemalloc
 
 #---------------------------------------------------------------
 # DEFAULTS
-VERSION = "0.7.1"
+VERSION = "0.7.2"
 ISOLATION_TITLE = "Virus:Isolation by El Daro"
 DEFAULT_GRAPHS_DIR = "../graphs"
 
@@ -1453,7 +1453,7 @@ Usage examples:
 							formatter_class = argparse.RawDescriptionHelpFormatter
 						)
 	parser.add_argument("input_string",		nargs = '?',
-					 help = "Path to the input file or folder")
+					 help = "Path to the input file or folder, or directly from user input")
 	
 	parser.add_argument('-d', "--debug",	 action = "store_true", default = False, 
 					 help = "Debug output")
