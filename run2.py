@@ -1410,38 +1410,38 @@ def invoke_virus_isolation(args):
 def parse_arguments():
 	parser = argparse.ArgumentParser(description = ISOLATION_TITLE,
 										  epilog = """
-			examples:
-			# To see help, run:
-			%(prog)s -h
+Usage examples:
+# To see help, run:
+> %(prog)s -h
 
-			# To process an input file, run:
-			%(prog)s "input_file.txt"
+# To process an input file, run:
+> %(prog)s "input_file.txt"
 
-			# To process an entire directory, run:
-			%(prog)s "/path/to/directory/"
+# To process an entire directory, run:
+> %(prog)s "/path/to/directory/"
 
-			# Manual input
-			%(prog)s
+# Manual input
+> %(prog)s
 
-			# To see the steps history use the `--verbose` flag:
-			%(prog)s --verbose
-			%(prog)s -v
+# To see the steps history use the `--verbose` flag:
+> %(prog)s --verbose
+> %(prog)s -v
 
-			# To see the steps history in all their glory use the `--colored` flag:
-			%(prog)s -v --colored
-			%(prog)s -v -C
+# To see the steps history in all their glory use the `--colored` flag:
+> %(prog)s -v --colored
+> %(prog)s -v -C
 
-			# To run pre-defined tests use the `--tests` flag:
-			%(prog)s -v --profiler -C --tests
+# To run pre-defined tests use the `--tests` flag:
+> %(prog)s -v --profiler -C --tests
 
-			# These are the examples presented in the original task description:
-			%(prog)s -v --profiler -C --tests --option EXAMPLE
+# These are the examples presented in the original task description:
+> %(prog)s -v --profiler -C --tests --option EXAMPLE
 
-			# These are the examples in the \graphs\tests\ directory
-			%(prog)s -v --profiler -C --tests --option FROM_DIR
+# These are the examples in the graphs\\tests directory
+> %(prog)s -v --profiler -C --tests --option FROM_DIR
 
-			# And from a specific file with example (pre-defined) 
-			%(prog)s -v --profiler -C --tests --option FROM_FILE
+# And from a specific file with example (pre-defined) 
+> %(prog)s -v --profiler -C --tests --option FROM_FILE
 							""",
 							formatter_class = argparse.RawDescriptionHelpFormatter
 						)

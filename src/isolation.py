@@ -1437,7 +1437,7 @@ Usage examples:
 # These are the examples presented in the original task description:
 > %(prog)s -v --profiler -C --tests --option EXAMPLE
 
-# These are the examples in the \graphs\tests\ directory
+# These are the examples in the graphs\\tests directory
 > %(prog)s -v --profiler -C --tests --option FROM_DIR
 
 # And from a specific file with example (pre-defined) 
