@@ -1,7 +1,7 @@
 #pylint:disable=W0312
 
 #---------------------------------------------------------------------------#
-# Version: 0.6.2															#
+# Version: 0.6.3															#
 # Virus:Isolation															#
 # Through tough though thorough thought.									#
 #---------------------------------------------------------------------------#
@@ -81,6 +81,8 @@
 #	  `-C`, `--colored`, `--coloured`
 # v0.6.2
 #	- Added coloring to the `Game Over` state
+# v0.6.3
+#	- Added usage examples to the help screen
 #---------------------------------------------------------------------------#
 
 #---------------------------------------------------------------------------#
@@ -132,7 +134,7 @@ import argparse, re, sys, tracemalloc
 
 #---------------------------------------------------------------
 # DEFAULTS
-VERSION = "0.6.2"
+VERSION = "0.6.3"
 ISOLATION_TITLE = "Virus:Isolation by El Daro"
 DEFAULT_GRAPHS_DIR = "../graphs"
 
@@ -1406,7 +1408,43 @@ def invoke_virus_isolation(args):
 #------------------------------------------------------------------------------
 # Arguments parsing
 def parse_arguments():
-	parser = argparse.ArgumentParser(description = ISOLATION_TITLE)
+	parser = argparse.ArgumentParser(description = ISOLATION_TITLE,
+										  epilog = """
+Usage examples:
+# To see help, run:
+> %(prog)s -h
+
+# To process an input file, run:
+> %(prog)s "input_file.txt"
+
+# To process an entire directory, run:
+> %(prog)s "/path/to/directory/"
+
+# Manual input
+> %(prog)s
+
+# To see the steps history use the `--verbose` flag:
+> %(prog)s --verbose
+> %(prog)s -v
+
+# To see the steps history in all their glory use the `--colored` flag:
+> %(prog)s -v --colored
+> %(prog)s -v -C
+
+# To run pre-defined tests use the `--tests` flag:
+> %(prog)s -v --profiler -C --tests
+
+# These are the examples presented in the original task description:
+> %(prog)s -v --profiler -C --tests --option EXAMPLE
+
+# These are the examples in the \graphs\tests\ directory
+> %(prog)s -v --profiler -C --tests --option FROM_DIR
+
+# And from a specific file with example (pre-defined) 
+> %(prog)s -v --profiler -C --tests --option FROM_FILE
+							""",
+							formatter_class = argparse.RawDescriptionHelpFormatter
+						)
 	parser.add_argument("input_string",		nargs = '?',
 					 help = "Path to the input file or folder")
 	
