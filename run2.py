@@ -1,7 +1,7 @@
 #pylint:disable=W0312
 
 #---------------------------------------------------------------------------#
-# Version: 0.7.4                                                            #
+# Version: 0.7.5                                                            #
 # Virus:Isolation                                                           #
 # Through tough though thorough thought.                                    #
 #---------------------------------------------------------------------------#
@@ -138,7 +138,7 @@ import argparse, re, sys, tracemalloc
 
 #---------------------------------------------------------------
 # DEFAULTS
-VERSION = "0.7.4"
+VERSION = "0.7.5"
 ISOLATION_TITLE = "Virus:Isolation by El Daro"
 DEFAULT_GRAPHS_DIR = "../graphs"
 
@@ -1372,21 +1372,26 @@ def solve_from_input(input_path: Optional[str] = None, colored: bool = False, de
 				exit(0)
 
 		else:
-			parent_dir = Path(__file__).parent.resolve()
-			path_absolute = Path(parent_dir, input_path).resolve()
-			if path_absolute.is_dir():
-				input_paths = get_input_paths(str(path_absolute))
-				for input_file_path in input_paths:
-					file_obj = Path(input_file_path).resolve()
+			try:
+				parent_dir = Path(__file__).parent.resolve()
+				path_absolute = Path(parent_dir, input_path).resolve()
+				if path_absolute.is_dir():
+					input_paths = get_input_paths(str(path_absolute))
+					for input_file_path in input_paths:
+						file_obj = Path(input_file_path).resolve()
+						input_as_text = str(File.read(file_obj))
+						solve_from_text(input_as_text, colored = colored, debug = debug, verbose = verbose)
+					return
+
+				elif Path(path_absolute).is_file() and Path(path_absolute).suffix == ".txt":
+					file_obj = Path(path_absolute).resolve()
 					input_as_text = str(File.read(file_obj))
 					solve_from_text(input_as_text, colored = colored, debug = debug, verbose = verbose)
-				return
-
-			elif Path(path_absolute).is_file() and Path(path_absolute).suffix == ".txt":
-				file_obj = Path(path_absolute).resolve()
-				input_as_text = str(File.read(file_obj))
-				solve_from_text(input_as_text, colored = colored, debug = debug, verbose = verbose)
-				return
+					return
+				
+			except Exception as ex:
+				if debug:
+					print_error(ex)
 			
 		solve_from_text(input_as_text, colored = colored, debug = debug, verbose = verbose)
 
