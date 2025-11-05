@@ -8,9 +8,10 @@ It can be used with files, directories, or standard input.
 ### Task:
 Given a graph defined as edges between nodes, find the correct sequence of edges to sever in order to prevent the virus from reaching the gateways.
 
-- The Virus finds the closest gateway and tries to reach it.
-- The system acts first by severing the edge to the closest gateway.
-- Then the Virus moves.
+- The Virus finds the closest gateway and moves towards it.
+- The system acts by severing the edge to the closest gateway.
+- The cycle repeats until there are no possible moves left.
+*Note that at the very first step the system acts first, so, technically, the virus does the search without moving at step 1.*
 
 #### Input example
 ```
@@ -53,7 +54,7 @@ C-f
 
 This program uses [BFS Search algorythm with early exit](https://www.redblobgames.com/pathfinding/early-exit/) to find the closest gateway.
 
-Results of the search are then processed and analyzed in order to find the priority target (closes gateway, choosen alphabetically in case of tie), the priority path (again, alphabetically) and the distance.
+Results of the search are then processed and analyzed in order to find the priority target (closest gateway, chosen alphabetically in case of a tie), the priority path to it (again, alphabetically) and the distance.
 
 Based on this analysis, an edge is severed between the closest gateway and the corresponding node.
 
@@ -120,9 +121,10 @@ Clone this repository and run `python run2.py` with or without arguments.
 | `--profile` | `-P` | flag | off | If passed, performance profiling will be enabled |
 | `--tests` | `-T` | flag | off | If passed, the program will run a pre-defined set of tests |
 | `--option OPTION` | `-O` | enum/str | DEFAULT | Defines what specific tests to run. Possible values: `EXAMPLE`, `FROM_DIR`, `FROM_FILE` |
-| | | | | 'DEFAULT': A single pre-defined test; 'EXAMPLE': Pre-defined examples fromt he original task description; 'FROM_DIR': Tests from the \graphs\tests\ directory; 'FROM_FILE': A specific file with example (pre-defined) |
+| | | | | 'DEFAULT': A single pre-defined test / 'EXAMPLE': Pre-defined examples fromt he original task description / 'FROM_DIR': Tests from the \graphs\tests\ directory / 'FROM_FILE': A specific file with example (pre-defined) |
 
 ## Links
 
-#### A* Search
+#### BFS Search
+- [RedBlobGames | BFS Search algorythm](https://www.redblobgames.com/pathfinding/tower-defense/#diagram-parents)
 - [RedBlobGames | BFS Search algorythm with early exit](https://www.redblobgames.com/pathfinding/early-exit/)
