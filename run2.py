@@ -1346,7 +1346,7 @@ def solve_from_text(input_as_text: str, *, colored: bool = False, debug: bool = 
 	except Exception as ex:
 		raise ex
 
-def solve_from_input(input_string: Optional[str] = None, colored: bool = False, debug: bool = False, verbose: bool = False):
+def solve_from_input(input_string: Optional[str | list | List] = None, colored: bool = False, debug: bool = False, verbose: bool = False):
 	# From the cli:   ./run2.py < input.txt
 	#			 cat input.txt | ./run2.py
 	#			 ./run2.py (manual)
@@ -1401,7 +1401,8 @@ def solve_from_input(input_string: Optional[str] = None, colored: bool = False, 
 			except Exception as ex:
 				if debug:
 					print_error(ex)
-			
+		
+		# Agnostic input, maybe processed — maybe not
 		solve_from_text(input_as_text, colored = colored, debug = debug, verbose = verbose)
 
 	except Exception as ex:
