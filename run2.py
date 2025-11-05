@@ -92,6 +92,8 @@
 #    in order to find possible solutions                                    #
 #  - The old game loop now rebranded to fast game loop                      #
 #    only goes for the nearest gateways                                     #
+# v0.8.1                                                                    #
+#  - Disabled fast game loop                                                #
 #---------------------------------------------------------------------------#
 
 #---------------------------------------------------------------------------#
@@ -1036,7 +1038,7 @@ class Virus:
 
 	def _get_win_sequence(self, graph: Graph, pos_current: str):
 		for gateway, nodes in sorted(graph.gateway_edges.items()):
-			for node in nodes:
+			for node in sorted(nodes):
 				graph_copy = graph.copy()
 
 				severed_edge = { gateway: node }
@@ -1107,7 +1109,7 @@ class Virus:
 					  debug: bool = False, verbose: bool = False):
 		if pos_current is None or pos_current == "":
 			pos_current = self.pos_initial
-		# self._graph._reset()
+		self._graph._reset()
 		# result = graph.bfs(pos_current)
 		# target = self._get_priority_target(result)
 		# priority_path = self._get_priority_path(result, pos_current, target)
@@ -1122,32 +1124,38 @@ class Virus:
 			return { 'win': True, 'win_sequence': win_sequence }
 
 	def solve(self, debug: bool = False, verbose: bool = False):
-		if not self.game_loop_fast(debug, verbose):
-			self._graph._reset() 
-			result = self.game_loop_thorough(self._graph.copy(),
-								self.pos_initial,
-								debug = debug,
-								verbose = verbose)
-			if not result['win']:
-				result = self._game_over
-			else:
-				if self._replay_win_sequence(result['win_sequence']):
-					result = ""
-					for step in self.steps:
-						if len(step.severed_edge) > 1:
-							raise Exception(f"Too many severed edges in a step: {step.severed_edge}")
-						gateway, node = next(iter(step.severed_edge.items()))
-						result += f"{gateway}-{node}\n"
-				else:
-					result = self._game_over
-
+		# if not self.game_loop_fast(debug, verbose):
+		self._graph._reset() 
+		result = self.game_loop_thorough(self._graph.copy(),
+							self.pos_initial,
+							debug = debug,
+							verbose = verbose)
+		if not result['win']:
+			result = str(COLOURS['LIGHT_RED'] + "You died.\n" +
+						 COLOURS['BROWN'] + "Virus reached gateway: " +
+						 COLOURS['RED'] + f"{self.pos_current}" + 
+						 COLOURS['LIGHT_GRAY'])
 		else:
-			result = ""
-			for step in self.steps:
-				if len(step.severed_edge) > 1:
-					raise Exception(f"Too many severed edges in a step: {step.severed_edge}")
-				gateway, node = next(iter(step.severed_edge.items()))
-				result += f"{gateway}-{node}\n"
+			if self._replay_win_sequence(result['win_sequence']):
+				result = ""
+				for step in self.steps:
+					if len(step.severed_edge) > 1:
+						raise Exception(f"Too many severed edges in a step: {step.severed_edge}")
+					gateway, node = next(iter(step.severed_edge.items()))
+					result += f"{gateway}-{node}\n"
+			else:
+				result = str(COLOURS['LIGHT_RED'] + "You died.\n" +
+						 	 COLOURS['BROWN'] + "Virus reached gateway: " +
+							 COLOURS['RED'] + f"{self.pos_current}" + 
+						 	 COLOURS['LIGHT_GRAY'])
+
+		# else:
+		# 	result = ""
+		# 	for step in self.steps:
+		# 		if len(step.severed_edge) > 1:
+		# 			raise Exception(f"Too many severed edges in a step: {step.severed_edge}")
+		# 		gateway, node = next(iter(step.severed_edge.items()))
+		# 		result += f"{gateway}-{node}\n"
 
 		self._output = result.strip()
 		if self._output == "":
