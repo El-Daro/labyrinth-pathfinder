@@ -1,7 +1,7 @@
 #pylint:disable=W0312
 
 #---------------------------------------------------------------------------#
-# Version: 0.7.6                                                            #
+# Version: 0.7.7                                                            #
 # Virus:Isolation                                                           #
 # Through tough though thorough thought.                                    #
 #---------------------------------------------------------------------------#
@@ -138,7 +138,7 @@ import argparse, re, sys, tracemalloc
 
 #---------------------------------------------------------------
 # DEFAULTS
-VERSION = "0.7.6"
+VERSION = "0.7.7"
 ISOLATION_TITLE = "Virus:Isolation by El Daro"
 DEFAULT_GRAPHS_DIR = "graphs"
 
@@ -434,14 +434,14 @@ class Graph:
 		# 	 		 regex_to.fullmatch(row) for row in graph_rows):
 		# 	return False
 		
-		# for row in graph_rows:
-		# 	if not regex_from.fullmatch(row) and not regex_to.fullmatch(row):
-		# 		print(f"Invalid edge format: {row}")
-		# 		return False
-		# 	node_from, node_to = row.split("-")
-		# 	if node_from == node_to:
-		# 		print(f"Self-loop detected: {row}")
-		# 		return False
+		for row in graph_rows:
+			if not regex_from.fullmatch(row) and not regex_to.fullmatch(row):
+				print(f"Invalid edge format: {row}")
+				return False
+			node_from, node_to = row.split("-")
+			if node_from == node_to:
+				print(f"Self-loop detected: {row}")
+				return False
 
 		return True
 	 
@@ -511,9 +511,9 @@ class Graph:
 		self._graph_as_text_simple = ""
 
 		for row in graph_rows:
+			# node_from, node_to = row.strip().split("-")
 			node_from, separator, node_to = row.strip().partition('-')
 			if separator:
-				# node_from, node_to = row.strip().split("-")
 				self.add_edge(node_from, node_to)
 				self._graph_as_text_simple += row + suffix
 		
@@ -706,13 +706,13 @@ class Virus:
 			print("No results were found", file = sys.stderr)
 			return None
 		
-	@property
-	def step(self):
-		if self.steps is None or len(self.steps) == 0:
-			print("No solution steps were found", file = sys.stderr)
-			return None
-		else:
-			return self.get_state_readable()
+	# @property
+	# def step(self):
+	# 	if self.steps is None or len(self.steps) == 0:
+	# 		print("No solution steps were found", file = sys.stderr)
+	# 		return None
+	# 	else:
+	# 		return self.get_state_readable()
 
 	# REPRESENTATION
 	def __repr__(self):
@@ -1346,12 +1346,12 @@ def solve_from_text(input_as_text: str, *, colored: bool = False, debug: bool = 
 	except Exception as ex:
 		raise ex
 
-def solve_from_input(input_path: Optional[str] = None, colored: bool = False, debug: bool = False, verbose: bool = False):
+def solve_from_input(input_string: Optional[str] = None, colored: bool = False, debug: bool = False, verbose: bool = False):
 	# From the cli:   ./run2.py < input.txt
 	#			 cat input.txt | ./run2.py
 	#			 ./run2.py (manual)
 	try:
-		if not input_path:
+		if not input_string:
 			if os_name == 'nt':
 				help_message = "To exit send Ctrl+Z then Enter"
 			elif os_name == 'posix':
@@ -1376,8 +1376,11 @@ def solve_from_input(input_path: Optional[str] = None, colored: bool = False, de
 
 		else:
 			try:
+				if isinstance(input_string, list) or isinstance(input_string, List):
+					solve_from_text(input_string, colored = colored, debug = debug, verbose = verbose)
+					return
 				parent_dir = Path(__file__).parent.resolve()
-				path_absolute = Path(parent_dir, input_path).resolve()
+				path_absolute = Path(parent_dir, input_string).resolve()
 				if path_absolute.is_dir():
 					input_paths = get_input_paths(str(path_absolute))
 					for input_file_path in input_paths:
@@ -1391,6 +1394,9 @@ def solve_from_input(input_path: Optional[str] = None, colored: bool = False, de
 					input_as_text = str(File.read(file_obj))
 					solve_from_text(input_as_text, colored = colored, debug = debug, verbose = verbose)
 					return
+				
+				else:
+					input_as_text = input_string.strip("\n").strip().split("\n")
 				
 			except Exception as ex:
 				if debug:
@@ -1408,7 +1414,7 @@ def invoke_virus_isolation(args):
 			# python ./run2.py graph.txt
 			# file_try = Path(args.input_string)
 			# if file_try.is_dir() or file_try.is_file():
-			solve_from_input(input_path = args.input_string, colored = args.colored, debug = args.debug, verbose = args.verbose)
+			solve_from_input(input_string = args.input_string, colored = args.colored, debug = args.debug, verbose = args.verbose)
 			# else:
 				# print_error("Input is not a path to file or directory: {0}".format(args.input_string), file = sys.stderr)
 				# raise Exception("Input is not a path to file or directory: {0}".format(args.input_string))
@@ -1418,7 +1424,7 @@ def invoke_virus_isolation(args):
 			if args.input_string is not None:
 				raise UnboundLocalError("[DIRECT] Input is not a path to file or directory: {0}".format(args.input_string))
 			# python .\isolation.py
-			solve_from_input(colored = args.colored, debug = args.debug, verbose = args.verbose)
+			solve_from_input(input_string = "", colored = args.colored, debug = args.debug, verbose = args.verbose)
 	
 	except Exception as ex:
 		raise ex
