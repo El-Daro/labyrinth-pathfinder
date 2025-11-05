@@ -1,7 +1,7 @@
 #pylint:disable=W0312
 
 #---------------------------------------------------------------------------#
-# Version: 0.8.0                                                            #
+# Version: 0.8.2                                                            #
 # Virus:Isolation                                                           #
 # Through tough though thorough thought.                                    #
 #---------------------------------------------------------------------------#
@@ -94,6 +94,8 @@
 #    only goes for the nearest gateways                                     #
 # v0.8.1                                                                    #
 #  - Disabled fast game loop                                                #
+# v0.8.2                                                                    #
+#  - Added a bit more robustness                                            #
 #---------------------------------------------------------------------------#
 
 #---------------------------------------------------------------------------#
@@ -145,7 +147,7 @@ import argparse, re, sys, tracemalloc
 
 #---------------------------------------------------------------
 # DEFAULTS
-VERSION = "0.8.0"
+VERSION = "0.8.2"
 ISOLATION_TITLE = "Virus:Isolation by El Daro"
 DEFAULT_GRAPHS_DIR = "graphs"
 
@@ -926,8 +928,11 @@ class Virus:
 
 	# FUNCTIONAL
 	def _get_priority_target(self, result: BFSResult):
-		if result is None or result.targets_found is None:
+		if result is None:
 			raise Exception("No current BFS were found")
+		
+		if result.targets_found is None or len(result.targets_found) == 0:
+			return None
 
 		return sorted(result.targets_found)[0]
 
@@ -968,17 +973,20 @@ class Virus:
 	
 	def _update_history(self, step_counter, *, debug: bool = False, verbose: bool = False):
 		self.results_history.append(self._result)
-		self.steps.append(State(
-			position = self.pos_current,
-			target = self._target,
-			priority_path_current = self._priority_path,
-			severed_edge = self._severed_edge,
-			priority_path_next = None
-		))
-		# Retrofit the new priority path into the previous record
-		# (Handles the special case of the 0th step)
-		if step_counter > 0 and len(self.steps) > 0:
-			self.steps[step_counter - 1].priority_path_next = self._priority_path
+		if self._target is None:
+			self._target = "N/D"
+		if len(self._severed_edge.values()) > 0:
+			self.steps.append(State(
+				position = self.pos_current,
+				target = self._target,
+				priority_path_current = self._priority_path,
+				severed_edge = self._severed_edge,
+				priority_path_next = None
+			))
+			# Retrofit the new priority path into the previous record
+			# (Handles the special case of the 0th step)
+			if step_counter > 0 and len(self.steps) > 0:
+				self.steps[step_counter - 1].priority_path_next = self._priority_path
 
 		if debug:
 			print_debug(self.get_state_readable(step_counter))
@@ -1005,7 +1013,12 @@ class Virus:
 			self._target = self._get_priority_target(self._result)
 
 			# Step 3: Get the priority path to it
-			self._priority_path = self._get_priority_path(self._result, self.pos_current, self._target)
+			if self._target is None:
+				self._priority_path = [self.pos_current]
+			else:
+				self._priority_path = self._get_priority_path(self._result, self.pos_current, self._target)
+
+			# self._priority_path = self._get_priority_path(self._result, self.pos_current, self._target)
 
 			# Step 4: Move the virus
 			# NOTE: Skipping the first move because of the specific starting condition
@@ -1025,8 +1038,12 @@ class Virus:
 				return False
 
 			# Step 5: Sever one of the gateway edges (based on priority)
-			self._severed_edge = { self._target: self._result.parents[self._target] }
-			self._graph.sever_gateway(self._target, self._result.parents[self._target])
+			if self._target is None:
+				self._severed_edge = { "N/D": "N/D" }
+				# self._graph.sever_gateway(self._target, self._result.parents[self._target])
+			else:
+				self._severed_edge = { self._target: self._result.parents[self._target] }
+				self._graph.sever_gateway(self._target, self._result.parents[self._target])
 			
 			self._update_history(step_counter, debug = debug)
 			step_counter += 1
@@ -1050,7 +1067,11 @@ class Virus:
 					return [{ gateway: node }]
 
 				target = self._get_priority_target(result)
-				priority_path = self._get_priority_path(result, pos_current, target)
+				if target is None:
+					priority_path = [pos_current]
+				else:
+					priority_path = self._get_priority_path(result, pos_current, target)
+				# priority_path = self._get_priority_path(result, pos_current, target)
 				# if step_counter != 0:
 				if priority_path is None or len(priority_path) < 2:
 					continue
@@ -1082,7 +1103,10 @@ class Virus:
 			self._target = self._get_priority_target(self._result)
 
 			# Step 3: Get the priority path to it
-			self._priority_path = self._get_priority_path(self._result, self.pos_current, self._target)
+			if self._target is None:
+				self._priority_path = [self.pos_current]
+			else:
+				self._priority_path = self._get_priority_path(self._result, self.pos_current, self._target)
 
 			# Step 4: Move the virus
 			# NOTE: Skipping the first move because of the specific starting condition
@@ -1132,8 +1156,7 @@ class Virus:
 							verbose = verbose)
 		if not result['win']:
 			result = str(COLOURS['LIGHT_RED'] + "You died.\n" +
-						 COLOURS['BROWN'] + "Virus reached gateway: " +
-						 COLOURS['RED'] + f"{self.pos_current}" + 
+						 COLOURS['BROWN'] + "Virus reached a gateway" +
 						 COLOURS['LIGHT_GRAY'])
 		else:
 			if self._replay_win_sequence(result['win_sequence']):
@@ -1145,8 +1168,7 @@ class Virus:
 					result += f"{gateway}-{node}\n"
 			else:
 				result = str(COLOURS['LIGHT_RED'] + "You died.\n" +
-						 	 COLOURS['BROWN'] + "Virus reached gateway: " +
-							 COLOURS['RED'] + f"{self.pos_current}" + 
+						 	 COLOURS['BROWN'] + "Virus reached a gateway: " +
 						 	 COLOURS['LIGHT_GRAY'])
 
 		# else:
