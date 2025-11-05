@@ -1396,6 +1396,7 @@ def solve_from_input(input_path: Optional[str] = None, colored: bool = False, de
 def invoke_virus_isolation(args):
 	try:
 		if args.input_string is not None and args.input_string != "":
+			raise UnboundLocalError("[INDIRECT] Input is not a path to file or directory: {0}".format(args.input_string))
 			# python ./run2.py graph.txt
 			file_try = Path(args.input_string)
 			if file_try.is_dir() or file_try.is_file():
@@ -1406,7 +1407,7 @@ def invoke_virus_isolation(args):
 			
 		else:
 			if args.input_string is not None:
-				raise UnboundLocalError("Input is not a path to file or directory: {0}".format(args.input_string))
+				raise UnboundLocalError("[DIRECT] Input is not a path to file or directory: {0}".format(args.input_string))
 			# python .\isolation.py
 			solve_from_input(colored = args.colored, debug = args.debug, verbose = args.verbose)
 	
