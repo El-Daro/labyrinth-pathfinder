@@ -9,7 +9,9 @@ It can be used with files, directories, or standard input.
 Given a graph defined as edges between nodes, find the correct sequence of edges to sever in order to prevent the virus from reaching the gateways.
 
 - The Virus finds the closest gateway and moves towards it.
-- The system acts by severing the edge to the closest gateway.
+- The system acts by severing the edge to a chosen gateway.
+  - The gateway is chosen based on the thorough analysis of the graph with multiple simulated steps;
+  - Each such step is a BFS Early Exit search from a possible position of the virus to the nearest gateways.
 - The cycle repeats until there are no possible moves left.
 *Note that at the very first step the system acts first, so, technically, the virus does the search without moving at step 1.*
 
@@ -56,7 +58,7 @@ This program uses [BFS Search algorythm with early exit](https://www.redblobgame
 
 Results of the search are then processed and analyzed in order to find the priority target (closest gateway, chosen alphabetically in case of a tie), the priority path to it (again, alphabetically) and the distance.
 
-Based on this analysis, an edge is severed between the closest gateway and the corresponding node.
+The moves are simulated in advance — each with its own BFS search, — and the edges are severed in the order that prevents the virus from reaching any gateways.
 
 </details>
 
