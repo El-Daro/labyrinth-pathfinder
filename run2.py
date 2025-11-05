@@ -1,7 +1,7 @@
 #pylint:disable=W0312
 
 #---------------------------------------------------------------------------#
-# Version: 0.7.5                                                            #
+# Version: 0.7.6                                                            #
 # Virus:Isolation                                                           #
 # Through tough though thorough thought.                                    #
 #---------------------------------------------------------------------------#
@@ -138,9 +138,9 @@ import argparse, re, sys, tracemalloc
 
 #---------------------------------------------------------------
 # DEFAULTS
-VERSION = "0.7.5"
+VERSION = "0.7.6"
 ISOLATION_TITLE = "Virus:Isolation by El Daro"
-DEFAULT_GRAPHS_DIR = "../graphs"
+DEFAULT_GRAPHS_DIR = "graphs"
 
 DEFAULT_TESTS_DIR = DEFAULT_GRAPHS_DIR + "/tests"
 DEFAULT_TESTS_OUTPUTS_DIR = DEFAULT_GRAPHS_DIR + "/outputs"
@@ -434,14 +434,14 @@ class Graph:
 		# 	 		 regex_to.fullmatch(row) for row in graph_rows):
 		# 	return False
 		
-		for row in graph_rows:
-			if not regex_from.fullmatch(row) and not regex_to.fullmatch(row):
-				print(f"Invalid edge format: {row}")
-				return False
-			node_from, node_to = row.split("-")
-			if node_from == node_to:
-				print(f"Self-loop detected: {row}")
-				return False
+		# for row in graph_rows:
+		# 	if not regex_from.fullmatch(row) and not regex_to.fullmatch(row):
+		# 		print(f"Invalid edge format: {row}")
+		# 		return False
+		# 	node_from, node_to = row.split("-")
+		# 	if node_from == node_to:
+		# 		print(f"Self-loop detected: {row}")
+		# 		return False
 
 		return True
 	 
@@ -511,9 +511,11 @@ class Graph:
 		self._graph_as_text_simple = ""
 
 		for row in graph_rows:
-			node_from, node_to = row.strip().split("-")
-			self.add_edge(node_from, node_to)
-			self._graph_as_text_simple += row + suffix
+			node_from, separator, node_to = row.strip().partition('-')
+			if separator:
+				# node_from, node_to = row.strip().split("-")
+				self.add_edge(node_from, node_to)
+				self._graph_as_text_simple += row + suffix
 		
 		self._graph_as_text_simple = self._graph_as_text_simple.strip(suffix)
 
@@ -1368,8 +1370,9 @@ def solve_from_input(input_path: Optional[str] = None, colored: bool = False, de
 				if debug:
 					print_debug(f"\nInput read")
 			except KeyboardInterrupt:		# Ctrl+C
-				print_error("\nInput cancelled by the user")
-				exit(0)
+				if debug:
+					print_error("\nInput cancelled by the user")
+					exit(0)
 
 		else:
 			try:
@@ -1407,8 +1410,9 @@ def invoke_virus_isolation(args):
 			# if file_try.is_dir() or file_try.is_file():
 			solve_from_input(input_path = args.input_string, colored = args.colored, debug = args.debug, verbose = args.verbose)
 			# else:
-			# 	print_error("Input is not a path to file or directory: {0}".format(args.input_string), file = sys.stderr)
-			# 	raise Exception("Input is not a path to file or directory: {0}".format(args.input_string))
+				# print_error("Input is not a path to file or directory: {0}".format(args.input_string), file = sys.stderr)
+				# raise Exception("Input is not a path to file or directory: {0}".format(args.input_string))
+			# raise Exception("invoke_virus_isolation | Input is not a path to file or directory")
 			
 		else:
 			if args.input_string is not None:
