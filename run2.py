@@ -1,7 +1,7 @@
 #pylint:disable=W0312
 
 #---------------------------------------------------------------------------#
-# Version: 0.6.3                                                            #
+# Version: 0.7.0                                                            #
 # Virus:Isolation                                                           #
 # Through tough though thorough thought.                                    #
 #---------------------------------------------------------------------------#
@@ -83,6 +83,8 @@
 #  - Added coloring to the `Game Over` state                                #
 # v0.6.3                                                                    #
 #  - Added usage examples to the help screen                                #
+# v0.7.0                                                                    #
+#  - Bumped the minor version to clarify future tests                       #
 #---------------------------------------------------------------------------#
 
 #---------------------------------------------------------------------------#
@@ -134,7 +136,7 @@ import argparse, re, sys, tracemalloc
 
 #---------------------------------------------------------------
 # DEFAULTS
-VERSION = "0.6.3"
+VERSION = "0.7.0"
 ISOLATION_TITLE = "Virus:Isolation by El Daro"
 DEFAULT_GRAPHS_DIR = "../graphs"
 
