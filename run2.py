@@ -1,7 +1,7 @@
 #pylint:disable=W0312
 
 #---------------------------------------------------------------------------#
-# Version: 0.7.7                                                            #
+# Version: 0.8.0                                                            #
 # Virus:Isolation                                                           #
 # Through tough though thorough thought.                                    #
 #---------------------------------------------------------------------------#
@@ -85,8 +85,13 @@
 #  - Added usage examples to the help screen                                #
 # v0.7.0                                                                    #
 #  - Bumped the minor version to clarify future tests                       #
-# v0.7.1
-#  - Small fixes
+# v0.7.1                                                                    #
+#  - Small fixes                                                            #
+# v0.8.0                                                                    #
+#  - Added new game logic to search through the whole set of moves          #
+#    in order to find possible solutions                                    #
+#  - The old game loop now rebranded to fast game loop                      #
+#    only goes for the nearest gateways                                     #
 #---------------------------------------------------------------------------#
 
 #---------------------------------------------------------------------------#
@@ -138,15 +143,17 @@ import argparse, re, sys, tracemalloc
 
 #---------------------------------------------------------------
 # DEFAULTS
-VERSION = "0.7.7"
+VERSION = "0.8.0"
 ISOLATION_TITLE = "Virus:Isolation by El Daro"
 DEFAULT_GRAPHS_DIR = "graphs"
 
 DEFAULT_TESTS_DIR = DEFAULT_GRAPHS_DIR + "/tests"
 DEFAULT_TESTS_OUTPUTS_DIR = DEFAULT_GRAPHS_DIR + "/outputs"
 DEFAULT_TESTS_FILE = DEFAULT_TESTS_DIR + "/graph_complex_1.txt"
+DEFAULT_TESTS_DIR_SIM = DEFAULT_GRAPHS_DIR + "/thorough"
+DEFAULT_TESTS_FILE_SIM = DEFAULT_TESTS_DIR_SIM + "/graph_thorough_1.txt"
 
-ARGS_DEF_OPTIONS = { "DEFAULT", "EXAMPLE", "FROM_FILE", "FROM_DIR" }
+ARGS_DEF_OPTIONS = { "DEFAULT", "EXAMPLE", "FROM_FILE", "FROM_DIR", "SIMULATION" }
 
 #-------------------------------
 # Global
@@ -379,11 +386,11 @@ class Graph:
 		self._gateways_initial = deepcopy(self.gateways)
 		
 	def import_from_graph(self, graph: 'Graph'):
-		self.node_edges = graph.node_edges if graph.node_edges else defaultdict(set)
-		self.gateway_edges = graph.gateway_edges if graph.gateway_edges else defaultdict(set)
-		self.nodes = graph.nodes if graph.nodes else set()
-		self.gateways = graph.gateways if graph.gateways else set()
-		self.subgraphs = graph.subgraphs if graph.subgraphs else defaultdict(set)
+		self.node_edges = deepcopy(graph.node_edges) if graph.node_edges else defaultdict(set)
+		self.gateway_edges = deepcopy(graph.gateway_edges) if graph.gateway_edges else defaultdict(set)
+		self.nodes = deepcopy(graph.nodes) if graph.nodes else set()
+		self.gateways = deepcopy(graph.gateways) if graph.gateways else set()
+		self.subgraphs = deepcopy(graph.subgraphs) if graph.subgraphs else defaultdict(set)
 		self.graph_as_text = graph.graph_as_text if graph.graph_as_text else None
 
 	def import_from_text(self, graph_as_text):
@@ -558,6 +565,9 @@ class Graph:
 		self._build_graph()
 
 		self._build_subgraphs()
+
+	def copy(self):
+		return Graph(self)
 
 	def _reset(self):
 		self.node_edges = deepcopy(self._node_edges_initial)
@@ -913,36 +923,42 @@ class Virus:
 			print("\n".join(steps_as_string))
 
 	# FUNCTIONAL
-	def _get_priority_target(self):
-		if self._result is None or self._result.targets_found is None:
+	def _get_priority_target(self, result: BFSResult):
+		if result is None or result.targets_found is None:
 			raise Exception("No current BFS were found")
 
-		return sorted(self._result.targets_found)[0]
+		return sorted(result.targets_found)[0]
 
-	def _get_priority_path(self, target: str):
-		if (self._result is None or
-			self._result.parents is None or
-			self._result.distances is None or len (self._result.distances) == 0 or
+	def _get_priority_path(self, result: BFSResult, pos_current: str, target: str):
+		if (result is None or
+			result.parents is None or
+			result.distances is None or len (result.distances) == 0 or
 			target is None or target == ""):
-			raise Exception(f"No priority path found for target: {self._target}")
+			raise Exception(f"No priority path found for target: {target}")
 		
 		node_current = target
-		priority_path = []
+		priority_path = list()
 		priority_path.append(node_current)
-		for step in range(self._result.distances[target]):
-			if node_current == self.pos_current:
+		for step in range(result.distances[target]):
+			if node_current == pos_current:
 				break
 
 			# NOTE: Annoying particularity of Python not realizing that 'None'
 			#		will never be reached because of the check above
 			if node_current is not None:
-				node_current = self._result.parents[node_current]
+				node_current = result.parents[node_current]
 				priority_path.append(node_current)
 
 		priority_path.reverse()
 		return priority_path
 
-	def move(self, priority_path: list | List):
+	def move(self, priority_path: Optional[list[str] | List[str]] = None):
+		if priority_path is None or len(priority_path) < 2:
+			return None
+		else:
+			return priority_path[1]
+
+	def _move(self, priority_path: Optional[list | List] = None):
 		if priority_path is None or len(priority_path) < 2:
 			return None
 		else:
@@ -965,7 +981,7 @@ class Virus:
 		if debug:
 			print_debug(self.get_state_readable(step_counter))
 
-	def game_loop(self, debug: bool = False, verbose: bool = False):
+	def game_loop_fast(self, debug: bool = False, verbose: bool = False):
 		self.pos_current = self.pos_initial
 		self._graph._reset()
 		self._output = ""
@@ -984,10 +1000,10 @@ class Virus:
 				break
 			
 			# Step 2: Get the closest gateway
-			self._target = self._get_priority_target()
+			self._target = self._get_priority_target(self._result)
 
 			# Step 3: Get the priority path to it
-			self._priority_path = self._get_priority_path(self._target)
+			self._priority_path = self._get_priority_path(self._result, self.pos_current, self._target)
 
 			# Step 4: Move the virus
 			# NOTE: Skipping the first move because of the specific starting condition
@@ -1017,10 +1033,114 @@ class Virus:
 			self.steps[step_counter - 1].priority_path_next = [""]
 		
 		return True
+
+	def _get_win_sequence(self, graph: Graph, pos_current: str):
+		for gateway, nodes in sorted(graph.gateway_edges.items()):
+			for node in nodes:
+				graph_copy = graph.copy()
+
+				severed_edge = { gateway: node }
+				graph_copy.sever_gateway(gateway, node)
+
+				result = graph_copy.bfs(pos_current)
+				if (result.targets_found is None or
+				len(result.targets_found) == 0):
+					return [{ gateway: node }]
+
+				target = self._get_priority_target(result)
+				priority_path = self._get_priority_path(result, pos_current, target)
+				# if step_counter != 0:
+				if priority_path is None or len(priority_path) < 2:
+					continue
+					# raise Exception(f"Could not execute the move for the following path: {priority_path}")
+				else:
+					pos_next = priority_path[1]
+
+				if pos_next in graph_copy.gateways:
+					continue
+
+				win_seq = self._get_win_sequence(graph_copy, pos_next)
+
+				if win_seq is not None:
+					return [{ gateway: node }] + win_seq
+
+	def _replay_win_sequence(self, sequence: list[dict], debug: bool = False, verbose: bool = False):
+		self.pos_current = self.pos_initial
+		self._graph._reset()
+		self._output = ""
+		self._result = self._graph.bfs(self.pos_current)
+		self.results_history = []
+		self.steps = list()
+		step_counter = 0
+		for step in sequence:
+			# Step 1: Look for the nearest gateway in a changed graph
+			self._result = self._graph.bfs(self.pos_current)
+			
+			# Step 2: Get the closest gateway
+			self._target = self._get_priority_target(self._result)
+
+			# Step 3: Get the priority path to it
+			self._priority_path = self._get_priority_path(self._result, self.pos_current, self._target)
+
+			# Step 4: Move the virus
+			# NOTE: Skipping the first move because of the specific starting condition
+			if step_counter != 0:
+				self.pos_current = self.move(self._priority_path)
 	
+			if self.pos_current is None:
+				raise Exception(f"Could not execute the move for the following path: {self._priority_path}")
+
+			# Step 5: Sever one of the gateway edges (based on priority)
+			self._severed_edge = step
+			(gateway, node), = step.items()
+			self._graph.sever_gateway(gateway, node)
+			
+			self._update_history(step_counter, debug = debug)
+			step_counter += 1
+
+		if step_counter > 0 and len(self.steps) > 0:
+			self.steps[step_counter - 1].priority_path_next = [""]
+		
+		return True
+
+	def game_loop_thorough(self, graph: Graph, pos_current : str,
+					  debug: bool = False, verbose: bool = False):
+		if pos_current is None or pos_current == "":
+			pos_current = self.pos_initial
+		# self._graph._reset()
+		# result = graph.bfs(pos_current)
+		# target = self._get_priority_target(result)
+		# priority_path = self._get_priority_path(result, pos_current, target)
+		win_sequence = self._get_win_sequence(graph, pos_current)
+		
+		if debug:
+			print_debug(str(win_sequence))
+		
+		if win_sequence is None:
+			return { 'win': False, 'win_sequence': [] }
+		else:
+			return { 'win': True, 'win_sequence': win_sequence }
+
 	def solve(self, debug: bool = False, verbose: bool = False):
-		if not self.game_loop(debug, verbose):
-			result = self._game_over
+		if not self.game_loop_fast(debug, verbose):
+			self._graph._reset() 
+			result = self.game_loop_thorough(self._graph.copy(),
+								self.pos_initial,
+								debug = debug,
+								verbose = verbose)
+			if not result['win']:
+				result = self._game_over
+			else:
+				if self._replay_win_sequence(result['win_sequence']):
+					result = ""
+					for step in self.steps:
+						if len(step.severed_edge) > 1:
+							raise Exception(f"Too many severed edges in a step: {step.severed_edge}")
+						gateway, node = next(iter(step.severed_edge.items()))
+						result += f"{gateway}-{node}\n"
+				else:
+					result = self._game_over
+
 		else:
 			result = ""
 			for step in self.steps:
@@ -1081,6 +1201,45 @@ def display_graph_info(virus: Virus, debug: bool = False, verbose: bool = False)
 
 @profiler
 def test_agnostic(title: str = "NO TITLE",
+				  subtitle: str = "",
+				  input_text: str = "",
+				  output_canon: str = "",
+				  *, colored: bool = False, debug: bool = False, verbose: bool = False):
+	# if debug or verbose:
+	print()
+	print('{:-^67}'.format(title))
+	if subtitle is not None and subtitle != "":
+		print("\n" + subtitle, end = "")
+		if Path(input_text).is_file():
+			print(" | ", end = "")
+			print_debug(f"{Path(input_text).name}")
+		else:
+			print()
+	if debug:
+		print_debug("\n [DEBUG] Input:")
+		print_debug(input_text)
+	if verbose:
+		print("")
+	
+	virus = Virus(input_text)
+	display_graph_info(virus, debug, verbose)
+
+	result = virus.solve(debug = debug, verbose = verbose)
+	print(f"\n{'Steps: ':>10}")
+	virus.display_steps_history(colored = colored, debug = debug)
+	print(f"\n{'Output: ':>10}")
+	print(result)
+	if output_canon is not None and output_canon != "":
+		if result == output_canon:
+			print(COLOURS["LIGHT_GREEN"] + "TEST PASSED" + COLOURS["LIGHT_GRAY"])
+		else:
+			print(COLOURS["LIGHT_RED"] + "TEST FAILED" + COLOURS["LIGHT_GRAY"])
+			print(f"Correct output should be:")
+			print_info(f"{output_canon}")
+	print(f"\n{'-'*67}")
+
+@profiler
+def test_sim(title: str = "NO TITLE (SIM)",
 				  subtitle: str = "",
 				  input_text: str = "",
 				  output_canon: str = "",
@@ -1214,7 +1373,7 @@ def test_from_file_as_content(input_path: str, output_canon: str = "", colored: 
 			Path(input_path).resolve(), ex))
 
 @profiler
-def test_from_file_as_path(input_path: str, output_canon: str = "", colored: bool = False, debug: bool = False, verbose: bool = False):
+def test_from_file_as_path(input_path: str, output_canon: str = "", simulation: bool = False, colored: bool = False, debug: bool = False, verbose: bool = False):
 	try:
 		parent_dir = Path(__file__).parent.resolve()
 		input_path_absolute = Path(parent_dir, input_path)
@@ -1225,8 +1384,17 @@ def test_from_file_as_path(input_path: str, output_canon: str = "", colored: boo
 			print("Graph read directly from file:\n")
 			print(input_file)
 		
-		test_agnostic(title      = "TEST FROM FILE",
+		if not simulation:
+			test_agnostic(title  = "TEST FROM FILE",
 					subtitle     = "TESTS: Testing from file",
+					input_text   = str(input_path_absolute),
+					output_canon = output_canon,
+					colored		 = colored,
+					debug        = debug,
+					verbose      = verbose)
+		else:
+			test_sim(title       = "TEST FROM FILE",
+					subtitle     = "TESTS: Testing from file (simulation)",
 					input_text   = str(input_path_absolute),
 					output_canon = output_canon,
 					colored		 = colored,
@@ -1307,6 +1475,12 @@ def run_tests(args, *, colored: bool = False, debug: bool = False, verbose: bool
 				else:
 					path = args.test_path
 				test_from_dir(path, colored = colored, debug = debug, verbose = verbose)
+			case "SIMULATION":
+				if args.test_path is None or args.test_path == "":
+					path = DEFAULT_TESTS_FILE_SIM
+				else:
+					path = args.test_path
+				test_from_file_as_path(path, simulation = True, colored = colored, debug = debug, verbose = verbose)
 
 	return None
 
