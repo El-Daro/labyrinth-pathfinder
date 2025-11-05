@@ -1405,7 +1405,8 @@ def invoke_virus_isolation(args):
 				raise Exception("Input is not a path to file or directory: {0}".format(args.input_string))
 			
 		else:
-			raise UnboundLocalError("Input is not a path to file or directory: {0}".format(args.input_string))
+			if args.input_string is not None:
+				raise UnboundLocalError("Input is not a path to file or directory: {0}".format(args.input_string))
 			# python .\isolation.py
 			solve_from_input(colored = args.colored, debug = args.debug, verbose = args.verbose)
 	
